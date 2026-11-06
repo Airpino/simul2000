@@ -1,0 +1,869 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>
+// tema dello sfondo: automatico (come il sistema), chiaro o scuro; la scelta vale per tutte le pagine di Simul2000.
+// Le pagine chiedono il tema con matchMedia('(prefers-color-scheme: dark)'): qui la risposta tiene conto della scelta fatta
+(() => {
+  const KEY = 'simul2000-tema'; let pref = 'auto';
+  try { pref = localStorage.getItem(KEY) || 'auto'; } catch (e) {}
+  const real = window.matchMedia.bind(window), sys = real('(prefers-color-scheme: dark)'), listeners = new Set();
+  const dark = () => pref === 'dark' || (pref === 'auto' && sys.matches);
+  const apply = () => { const r = document.documentElement; if (pref === 'auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', pref); };
+  const notify = () => { const ev = { matches: dark(), media: '(prefers-color-scheme: dark)' }; listeners.forEach(f => { try { f(ev); } catch (e) {} }); };
+  const fake = { media: '(prefers-color-scheme: dark)', onchange: null, get matches() { return dark(); },
+    addEventListener: (t, f) => listeners.add(f), removeEventListener: (t, f) => listeners.delete(f), addListener: f => listeners.add(f), removeListener: f => listeners.delete(f), dispatchEvent: () => true };
+  sys.addEventListener('change', () => { if (pref === 'auto') notify(); });
+  window.matchMedia = q => (/prefers-color-scheme:\s*dark/.test(q) ? fake : real(q));
+  window.simulTheme = { get: () => pref, set(v) { pref = v; try { localStorage.setItem(KEY, v); } catch (e) {} apply(); notify(); } };
+  apply();
+})();
+</script>
+
+<title>Simul2000 · simulation of regression models</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,500;1,400&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F5F6F8; --surface:#FFFFFF; --ink:#1D2229; --muted:#5F6875; --rule:#DDE1E6; --grid:#ECEFF2;
+  --truec:#C9372C; --lines:#2E9A4E; --est:#D9A400; --resid:#B23AA8; --obs:#4651C9; --pairs:#C9372C; --lp:#2F62C8;
+  --accent:#3C5A99; --accent-ink:#FFFFFF; --btn:#EEF1F4; --btn-ink:#1D2229; --sel:#E8EEF9; --err:#B3261E; --textbg:#F0F2F5;
+  color-scheme:light; box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15181D; --surface:#1D2128; --ink:#E6E9ED; --muted:#9AA3AF; --rule:#2F353F; --grid:#262B33;
+    --truec:#FF6B5E; --lines:#4FCB7A; --est:#FFD24D; --resid:#E77ADF; --obs:#9AA5FF; --pairs:#FF7A6E; --lp:#7FA8FF;
+    --accent:#8FB0F0; --accent-ink:#11151B; --btn:#2A3039; --btn-ink:#E6E9ED; --sel:#25324A; --err:#FF8A80; --textbg:#181C22; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15181D; --surface:#1D2128; --ink:#E6E9ED; --muted:#9AA3AF; --rule:#2F353F; --grid:#262B33;
+  --truec:#FF6B5E; --lines:#4FCB7A; --est:#FFD24D; --resid:#E77ADF; --obs:#9AA5FF; --pairs:#FF7A6E; --lp:#7FA8FF;
+  --accent:#8FB0F0; --accent-ink:#11151B; --btn:#2A3039; --btn-ink:#E6E9ED; --sel:#25324A; --err:#FF8A80; --textbg:#181C22; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:400 15px/1.5 "IBM Plex Sans","Helvetica Neue",Arial,sans-serif}
+.wrap{max-width:88rem;margin:0 auto;padding:1.25rem 1.25rem 2.5rem}
+header{margin-bottom:.9rem}
+h1{font:500 1.6rem/1.2 "IBM Plex Serif",Georgia,serif;margin:0 0 .25rem}
+header p{margin:0;color:var(--muted);max-width:76ch}
+.panel{background:var(--surface);border:1px solid var(--rule);border-radius:8px}
+h2{font:600 .95rem/1.3 "IBM Plex Sans",Arial,sans-serif;margin:0 0 .75rem}
+button{font:inherit;font-weight:500;border:1px solid var(--rule);background:var(--btn);color:var(--btn-ink);border-radius:6px;padding:.45rem .8rem;cursor:pointer}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+label.f{display:block;font-size:.88rem;color:var(--muted);margin:.6rem 0 .25rem}
+input[type=number],select,textarea{font:inherit;width:100%;padding:.35rem .5rem;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink);font-variant-numeric:tabular-nums}
+textarea{resize:vertical;min-height:2.6rem}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.row{display:flex;gap:.6rem;align-items:flex-end}
+.row > *{flex:1;min-width:0}
+.check{display:flex;gap:.5rem;align-items:center;font-size:.92rem;margin:.55rem 0 0;cursor:pointer}
+.check input{accent-color:var(--accent);width:1rem;height:1rem;margin:0;flex-shrink:0}
+.radio{display:flex;gap:.5rem;align-items:center;font-size:.92rem;margin:.35rem 0 0;cursor:pointer}
+.radio input{accent-color:var(--accent);margin:0;flex-shrink:0}
+.hint{color:var(--muted);font-size:.82rem;margin:.35rem 0 0}
+.err{color:var(--err);font-size:.85rem;margin:.5rem 0 0;min-height:1.2em}
+[hidden]{display:none !important}
+
+.setup{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;align-items:start}
+.setup .panel{padding:1rem 1.1rem}
+.setup h2 .sub{font-weight:400;color:var(--muted)}
+.formula{font:500 1.05rem/1.4 "IBM Plex Serif",Georgia,serif;margin:0 0 .4rem}
+.go{display:flex;justify-content:flex-end;gap:.6rem;margin-top:1rem}
+.go button{padding:.65rem 1.4rem}
+
+.toolbar{display:flex;align-items:center;gap:.5rem .6rem;flex-wrap:wrap;padding:.6rem .75rem;margin-bottom:.75rem}
+.toolbar .speed{display:flex;align-items:center;gap:.5rem;flex:1 1 14rem;min-width:12rem;max-width:22rem;margin-left:auto}
+.toolbar .speed span{font-size:.85rem;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.toolbar .count{font-variant-numeric:tabular-nums;font-weight:600;margin-left:.4rem}
+.progress{width:8rem;height:8px;background:var(--grid);border-radius:4px;overflow:hidden}
+.progress > i{display:block;height:100%;width:0;background:var(--accent)}
+.grid4{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.win{display:flex;flex-direction:column;min-width:0}
+.wtitle{display:flex;align-items:center;gap:.6rem;padding:.4rem .7rem;border-bottom:1px solid var(--rule);font-weight:600;font-size:.9rem;min-height:2.3rem}
+.wtitle .tabs{margin-left:auto;display:flex;gap:.25rem}
+.wtitle .tabs button{padding:.15rem .55rem;font-size:.82rem}
+.wtitle .tabs button[aria-selected="true"]{background:var(--sel);border-color:var(--accent)}
+.wbody{position:relative;height:min(38vh,21rem)}
+.wbody canvas{position:absolute;inset:0;width:100%;height:100%}
+.wfoot{display:flex;gap:.3rem .9rem;flex-wrap:wrap;color:var(--muted);font-size:.8rem;padding:.35rem .7rem .5rem}
+.wfoot i{display:inline-block;width:1rem;height:0;border-top:2.5px solid;margin-right:.3rem;vertical-align:.22rem}
+.wfoot b{display:inline-block;width:.6rem;height:.6rem;border-radius:50%;margin-right:.3rem;vertical-align:-.02rem}
+pre.text{margin:0;position:absolute;inset:0;overflow:auto;padding:.6rem .8rem;font:400 .82rem/1.45 "IBM Plex Mono",Menlo,Consolas,monospace;background:var(--textbg);color:var(--ink)}
+.dist{position:absolute;inset:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;padding:.3rem .2rem 0;gap:0 .2rem}
+.dist canvas{position:static;width:100%;height:100%;min-height:0}
+.dist table{grid-column:1/-1}
+.dist table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:.8rem}
+.dist th,.dist td{padding:.15rem .4rem;text-align:right;border-top:1px solid var(--grid)}
+.dist th:first-child,.dist td:first-child{text-align:left}
+.dist thead th{color:var(--muted);font-weight:500}
+.foot{color:var(--muted);font-size:.82rem;margin-top:1rem;max-width:80ch}
+@media (max-width:70rem){ .setup{grid-template-columns:1fr 1fr} }
+@media (max-width:52rem){ .setup,.grid4{grid-template-columns:1fr} .wbody{height:17rem} .toolbar .speed{margin-left:0;max-width:none} }
+/* barra superiore: ritorno al menu e scelta dello sfondo */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:.6rem 1rem;flex-wrap:wrap;margin:0 0 1.1rem}
+a.home{display:inline-flex;align-items:center;gap:.5rem;font:600 1.02rem/1.2 "IBM Plex Sans","Helvetica Neue",Arial,sans-serif;color:var(--accent-ink,var(--surface,#fff));background:var(--accent,var(--title,#3C5A99));border:1px solid var(--accent,var(--title,#3C5A99));border-radius:8px;padding:.6rem 1.1rem;text-decoration:none;box-shadow:0 2px 0 rgba(0,0,0,.18)}
+a.home:hover{filter:brightness(1.08)}
+a.home:active{transform:translateY(1px);box-shadow:none}
+a.home:focus-visible,.themesel button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.themesel{display:inline-flex;align-items:center;gap:.25rem;font-size:.85rem;color:var(--muted)}
+.themesel > span{margin-right:.35rem}
+.themesel button{font:inherit;font-size:.85rem;padding:.32rem .65rem;border:1px solid var(--rule);background:transparent;color:var(--ink);border-radius:6px;cursor:pointer}
+.themesel button[aria-pressed="true"]{background:var(--sel,rgba(60,90,153,.14));border-color:var(--accent,var(--title,#3C5A99));font-weight:600}
+/* cornice dell’applicazione, solo sugli schermi grandi: con lo sfondo scuro l’esterno è quasi nero e il bordo più chiaro */
+:root{--outer:color-mix(in srgb,var(--bg) 86%,var(--ink));--frame:var(--rule);--frame-sh:0 12px 40px rgba(0,0,0,.14);
+  --b-hi:rgba(255,255,255,.75);--b-lo:rgba(0,0,0,.07);--b-sh:rgba(20,30,50,.20);--field:#E1ECFB;--field-bd:#7A9CD2;--field-focus:#F2F7FE;--arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%232F4F8A' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");--btn2:#D9E6F8;--btn2-ink:#1B2945;--btn2-bd:#A6BDE2}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--outer:#090B0E;--frame:#3E4654;--frame-sh:0 0 0 1px rgba(255,255,255,.03),0 18px 50px rgba(0,0,0,.7);
+  --b-hi:rgba(255,255,255,.10);--b-lo:rgba(0,0,0,.35);--b-sh:rgba(0,0,0,.6);--field:#22324B;--field-bd:#5C7DB4;--field-focus:#2A3D5C;--arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23A9C4F0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");--btn2:#2A3B58;--btn2-ink:#E7EDF7;--btn2-bd:#4A5F86}}
+:root[data-theme="dark"]{--outer:#090B0E;--frame:#3E4654;--frame-sh:0 0 0 1px rgba(255,255,255,.03),0 18px 50px rgba(0,0,0,.7);
+  --b-hi:rgba(255,255,255,.10);--b-lo:rgba(0,0,0,.35);--b-sh:rgba(0,0,0,.6);--field:#22324B;--field-bd:#5C7DB4;--field-focus:#2A3D5C;--arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23A9C4F0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");--btn2:#2A3B58;--btn2-ink:#E7EDF7;--btn2-bd:#4A5F86}
+@media (min-width:60rem){
+  body{background:var(--outer)}
+  .wrap{width:calc(100% - 2.5rem);background:var(--bg);border:1px solid var(--frame);border-radius:16px;box-shadow:var(--frame-sh);margin:1.25rem auto 1.5rem;padding-left:1.75rem;padding-right:1.75rem}
+}
+/* tutto ciò che si può premere ha l’aspetto di un pulsante; pannelli e tabelle restano piatti */
+button:not(.sw){background-image:linear-gradient(180deg,var(--b-hi),transparent 55%,var(--b-lo));border-bottom-width:2px;border-bottom-color:color-mix(in srgb,var(--ink) 28%,var(--rule));box-shadow:inset 0 1px 0 var(--b-hi),0 1px 3px var(--b-sh);transition:transform .08s ease,box-shadow .08s ease}
+button:not(.sw):hover:not(:disabled){transform:translateY(-1px);box-shadow:inset 0 1px 0 var(--b-hi),0 3px 7px var(--b-sh)}
+button:not(.sw):active:not(:disabled){transform:translateY(1px);box-shadow:inset 0 2px 4px var(--b-lo)}
+button:disabled{background-image:none;box-shadow:none;transform:none}
+@media (prefers-reduced-motion: reduce){button:not(.sw){transition:none}button:not(.sw):hover:not(:disabled),button:not(.sw):active:not(:disabled){transform:none}}
+/* i campi in cui si scrive o si sceglie un valore hanno uno sfondo grigio, come caselle */
+/* campi da compilare: azzurri con bordo blu, disegnati senza lo stile di sistema del browser */
+input[type=number],select,textarea{-webkit-appearance:none;appearance:none;background-color:var(--field);border:1.5px solid var(--field-bd);border-radius:6px;box-shadow:inset 0 1px 3px var(--b-lo);color:var(--ink)}
+input[type=number]{-moz-appearance:textfield}
+select{background-image:var(--arrow);background-repeat:no-repeat;background-position:right .6rem center;background-size:12px 8px;padding-right:2rem}
+input[type=number]:focus,select:focus,textarea:focus{background-color:var(--field-focus);border-color:var(--accent,#3C5A99)}
+/* pulsanti secondari colorati (azzurro chiaro, o blu scuro con lo sfondo scuro); quelli principali restano nel colore d’accento */
+button:not(.sw):not(.primary):not(:disabled){background-color:var(--btn2);color:var(--btn2-ink);border-color:var(--btn2-bd);border-bottom-color:color-mix(in srgb,var(--btn2-bd) 65%,var(--ink))}
+button[aria-pressed="true"]:not(.sw):not(.primary),button[aria-selected="true"]:not(.sw):not(.primary){background-color:var(--accent,#3C5A99);color:var(--accent-ink,var(--surface,#fff));border-color:var(--accent,#3C5A99)}
+/* pulsante per salvare l’immagine e messaggio temporaneo */
+.topbar .savebtn{margin-left:auto}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 1.2rem);transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:.6rem 1rem;border-radius:8px;font-size:.9rem;max-width:min(90vw,34rem);z-index:50;box-shadow:0 6px 20px rgba(0,0,0,.3)}
+/* OK ripetuto in cima al quadro delle scelte */
+.gotop{display:flex;align-items:center;gap:.5rem 1rem;flex-wrap:wrap;margin:0 0 1rem}
+.gotop button{padding:.7rem 1.5rem;font-size:1.02rem}
+.langlink{display:inline-flex;align-items:center;font:600 .9rem/1.2 "IBM Plex Sans",Arial,sans-serif;color:var(--accent,var(--title,#3C5A99));text-decoration:none;border:1.5px solid var(--accent,var(--title,#3C5A99));border-radius:6px;padding:.32rem .7rem}
+.langlink:hover{background:var(--sel,rgba(60,90,153,.12))}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="topbar"><a class="home" id="homelink" href="index.html">← Main menu</a><a class="langlink" id="langlink" href="../simul_regressione.html" hreflang="it" lang="it">Italiano</a><button type="button" class="savebtn" id="saveimg" title="Save a PNG image with the charts, the parameters and the results of the simulation">Save image</button><div class="themesel" role="group" aria-label="Page background"><span>Background</span><button type="button" data-t="auto">automatic</button><button type="button" data-t="light">light</button><button type="button" data-t="dark">dark</button></div></div>
+<header>
+  <h1 id="title">Simulation of regression models</h1>
+  <p id="subtitle">From the model yᵢ = g(xᵢ; β₀, β₁) + εᵢ, m samples of n observations are drawn; on each one the two parameters are estimated, and their sampling distribution is observed.</p>
+</header>
+
+<!-- ================= QUADRO DELLE SCELTE ================= -->
+<section id="setup" aria-label="Choice of the regression model">
+  <div class="gotop" style="grid-column:1/-1"><button type="button" class="primary" id="oktop">OK ▶</button><span class="hint" style="margin:0">or change the settings below first</span></div>
+  <div class="setup">
+    <div class="panel">
+      <h2>Systematic component</h2>
+      <p class="formula" id="formula">y = β₀ + β₁x + ε</p>
+      <label class="radio"><input type="radio" name="g" value="lin" checked> linear</label>
+      <label class="radio"><input type="radio" name="g" value="exp"> nonlinear: β₀ · exp(β₁x)</label>
+      <div class="row">
+        <div><label class="f" for="b0">β₀</label><input type="number" id="b0" value="0.2" step="any"></div>
+        <div><label class="f" for="b1">β₁</label><input type="number" id="b1" value="1.1" step="any"></div>
+      </div>
+      <h2 style="margin-top:1rem">Choice of the x</h2>
+      <label class="radio"><input type="radio" name="xs" value="prog" checked> arithmetic progression</label>
+      <div class="row" id="progbox">
+        <div><label class="f" for="x0">initial x</label><input type="number" id="x0" value="1" step="any"></div>
+        <div><label class="f" for="dx">increment</label><input type="number" id="dx" value="1" step="any"></div>
+      </div>
+      <label class="radio"><input type="radio" name="xs" value="rand"> random values (drawn once, then fixed)</label>
+      <label class="radio"><input type="radio" name="xs" value="kbd"> x typed in</label>
+      <div id="kbdbox" hidden><label class="f" for="xlist">values of x separated by “;”</label><textarea id="xlist">1; 2; 3; 4; 5</textarea></div>
+      <label class="check"><input type="checkbox" id="xstd"> standardise the x</label>
+    </div>
+
+    <div class="panel">
+      <h2>Random component</h2>
+      <label class="radio"><input type="radio" name="e" value="gauss" checked> Gaussian errors</label>
+      <label class="radio"><input type="radio" name="e" value="normp"> exponential power errors (normal of order p)</label>
+      <div id="pbox" hidden><label class="f" for="pp">p, shape parameter</label><input type="number" id="pp" value="1" step="any" min="0.5" max="50">
+        <label class="check"><input type="checkbox" id="lpfit" checked> also fit the regression in L<sub>p</sub> norm</label>
+        <p class="hint">The L<sub>p</sub>-norm fit minimises Σ|yᵢ − β₀ − β₁xᵢ|^p: with exponential power errors it is the maximum likelihood estimate, to be compared with least squares (L<sub>2</sub> norm). Linear model and p ≥ 1 only.</p></div>
+      <label class="f" for="ss">s, scale parameter</label><input type="number" id="ss" value="1" step="any" min="0">
+      <p class="hint" id="ehint">εᵢ = s·zᵢ, with zᵢ standard normal: the error variance is s².</p>
+      <h2 style="margin-top:1rem">Simulation parameters</h2>
+      <div class="row">
+        <div><label class="f" for="n">sample size n</label><input type="number" id="n" value="5" min="2" max="500" step="1"></div>
+        <div><label class="f" for="m">number of samples m</label>
+          <select id="m"><option value="50">50</option><option value="100" selected>100</option><option value="500">500</option><option value="1000">1.000</option><option value="10000">10.000</option></select></div>
+      </div>
+      <label class="f" for="nb">classes of the histograms of the b</label><input type="number" id="nb" value="10" min="4" max="50" step="1">
+    </div>
+
+    <div class="panel">
+      <h2>Generator</h2>
+      <div class="row">
+        <div><label class="f" for="seed">Initial seed</label><input type="number" id="seed" value="7913862"></div>
+        <div style="flex:0 0 auto"><button id="newseed" type="button">New seed</button></div>
+      </div>
+      <h2 style="margin-top:1rem">Colours</h2>
+      <select id="palette" aria-label="Colour scheme">
+        <option value="orig">Simul2000 original</option>
+        <option value="cb">Colour-blind friendly</option>
+      </select>
+      <p class="hint" style="margin-top:1rem">The four windows are those of the original: fitted lines, pairs of estimates, single sample and text, plus the distributions of the b.</p>
+    </div>
+  </div>
+  <p class="err" id="err" role="alert"></p>
+  <div class="go"><button class="primary" id="ok">Confirm data</button></div>
+</section>
+
+<!-- ================= LE QUATTRO FINESTRE ================= -->
+<section id="run" hidden aria-label="Simulation">
+  <div class="panel toolbar">
+    <button id="back">Settings</button>
+    <button id="reset">Restart</button>
+    <button id="gen" class="primary">Generate</button>
+    <button id="go">Start</button>
+    <button id="all">Complete</button>
+    <span class="count" id="count"></span>
+    <div class="progress" aria-hidden="true"><i id="bar"></i></div>
+    <div class="speed"><span>‹‹ slower</span><input type="range" id="speed" min="1" max="40" value="4" aria-label="Speed: samples per second"><span>faster ››</span><span id="speedval"></span></div>
+  </div>
+  <div class="grid4">
+    <section class="panel win" aria-label="Fitted lines">
+      <div class="wtitle" id="t1">samples</div>
+      <div class="wbody"><canvas id="w1" role="img" aria-label="Lines fitted on the samples and true line"></canvas></div>
+      <div class="wfoot" id="f1"></div>
+    </section>
+    <section class="panel win" aria-label="Pairs of estimates">
+      <div class="wtitle" id="t2">pairs of estimates</div>
+      <div class="wbody"><canvas id="w2" role="img" aria-label="Cloud of the pairs of estimates of the two parameters, with the equiprobability ellipses"></canvas></div>
+      <div class="wfoot" id="f2"></div>
+    </section>
+    <section class="panel win" aria-label="Single sample">
+      <div class="wtitle" id="t3">sample</div>
+      <div class="wbody"><canvas id="w3" role="img" aria-label="Last sample with the true line, the fitted line and the residuals"></canvas></div>
+      <div class="wfoot" id="f3"></div>
+    </section>
+    <section class="panel win" aria-label="Text and distributions">
+      <div class="wtitle"><span id="t4">text</span>
+        <div class="tabs" role="tablist"><button role="tab" id="tabText" aria-selected="true">text</button><button role="tab" id="tabDist" aria-selected="false">distributions of the b</button></div>
+      </div>
+      <div class="wbody">
+        <pre class="text" id="text" tabindex="0"></pre>
+        <div class="dist" id="dist" hidden>
+          <canvas id="hb0" role="img" aria-label="Histogram of the estimates of β₀"></canvas>
+          <canvas id="hb1" role="img" aria-label="Histogram of the estimates of β₁"></canvas>
+          <table><thead><tr><th></th><th>mean</th><th>variance</th><th>theoretical</th></tr></thead><tbody id="bstats"></tbody></table>
+        </div>
+      </div>
+    </section>
+  </div>
+  <p class="foot" id="runfoot"></p>
+</section>
+
+<p class="foot">Least-squares estimates: in closed form for the linear model, with the Gauss-Newton method for the exponential one. The ellipses of the second window and the curves on the histograms of the b use the normal distribution (exact for the linear model with Gaussian errors, asymptotic otherwise) with covariance σ²(X′X)⁻¹, where for the exponential model X is the matrix of derivatives at the true parameter values. With exponential power errors the regression can also be fitted in L<sub>p</sub> norm, i.e. by maximum likelihood: for p = 1 with an exact method (intercept as the median of the residuals, slope by golden-section search), for 1 &lt; p &lt; 2 by iteratively reweighted least squares, for p &gt; 2 by Newton’s method; its asymptotic covariance is (X′X)⁻¹/I, with I the Fisher information for location. Numbers are generated in the browser with a multiplicative congruential generator.</p>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const fmt = (x, d) => Number.isFinite(x) ? x.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }).replace('-', '−') : '–';
+const fmtp = x => x.toLocaleString('en-US', { maximumFractionDigits: 4 }).replace('-', '−');
+const pad = (s, w) => String(s).padStart(w);
+const fnum = (x, d = 3) => Number.isFinite(x) ? x.toFixed(d) : '–';
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const radio = name => document.querySelector(`input[name="${name}"]:checked`).value;
+
+// ================= funzioni matematiche =================
+function lgamma(x) {
+  if (x < 0.5) return Math.log(Math.PI / Math.abs(Math.sin(Math.PI * x))) - lgamma(1 - x);
+  x -= 1;
+  const c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+  let a = c[0]; const t = x + 7.5;
+  for (let i = 1; i < 9; i++) a += c[i] / (x + i);
+  return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(a);
+}
+const G = x => Math.exp(lgamma(x));
+// momenti centrali standardizzati a partire dai momenti grezzi
+function fromRaw(m1, m2, m3, m4) {
+  const v = m2 - m1 * m1;
+  const c3 = m3 - 3 * m1 * m2 + 2 * m1 ** 3;
+  const c4 = m4 - 4 * m1 * m3 + 6 * m1 * m1 * m2 - 3 * m1 ** 4;
+  return [m1, v, c3 / v ** 1.5, c4 / (v * v)];
+}
+
+// ================= generatore di base =================
+// congruenziale moltiplicativo di Park e Miller: a = 48271, m = 2^31 − 1
+let state = 1, spare = null;
+function setSeed(s) { state = (Math.abs(Math.floor(s)) % 2147483646) + 1; spare = null; }
+function unif() { state = (state * 48271) % 2147483647; return state / 2147483647; }
+function upos() { let u; do u = unif(); while (u <= 0 || u >= 1); return u; }
+function rnorm() { // Box-Muller
+  if (spare !== null) { const z = spare; spare = null; return z; }
+  const r = Math.sqrt(-2 * Math.log(upos())), t = 2 * Math.PI * unif();
+  spare = r * Math.sin(t); return r * Math.cos(t);
+}
+function rgamma1(a) { // gamma di forma a e scala 1: Marsaglia e Tsang (2000)
+  if (a < 1) return rgamma1(a + 1) * Math.pow(upos(), 1 / a);
+  const d = a - 1 / 3, c = 1 / Math.sqrt(9 * d);
+  for (;;) {
+    let x, v;
+    do { x = rnorm(); v = 1 + c * x; } while (v <= 0);
+    v = v * v * v; const u = upos();
+    if (u < 1 - 0.0331 * x ** 4) return d * v;
+    if (Math.log(u) < 0.5 * x * x + d * (1 - v + Math.log(v))) return d * v;
+  }
+}
+
+// ================= distribuzioni =================
+const DISTS = [
+  { id: 'unif', name: 'Uniforme standard (0-1)', params: [],
+    r: () => unif(), d: x => (x >= 0 && x <= 1 ? 1 : 0),
+    mom: () => [0.5, 1 / 12, 0, 1.8], range: () => [0, 1, 0.02] },
+  { id: 'norm', name: 'Normale standard', params: [],
+    r: rnorm, d: x => Math.exp(-x * x / 2) / Math.sqrt(2 * Math.PI),
+    mom: () => [0, 1, 0, 3], range: () => [-4, 4, 0.1] },
+  { id: 'normp', name: 'Normale di ordine p', short: 'Normale di ordine p',
+    params: [{ k: 'p', sym: 'p', label: 'p, parametro di forma', v: 4, min: 0.5, max: 50 }],
+    note: 'Detta anche distribuzione exponential power. Forma standardizzata: f(x) ∝ exp(−|x|^p / p); per p = 2 è la normale standard. Generazione: |X|^p / p ha distribuzione gamma di forma 1/p.',
+    r: ({ p }) => { const g = rgamma1(1 / p), x = Math.pow(p * g, 1 / p); return unif() < 0.5 ? -x : x; },
+    d: (x, { p }) => Math.exp(-Math.pow(Math.abs(x), p) / p - Math.log(2) - Math.log(p) / p - lgamma(1 + 1 / p)),
+    mom: ({ p }) => { const v = Math.pow(p, 2 / p) * G(3 / p) / G(1 / p); return [0, v, 0, G(5 / p) * G(1 / p) / G(3 / p) ** 2]; },
+    range: ({ p }) => { const s = Math.sqrt(Math.pow(p, 2 / p) * G(3 / p) / G(1 / p)); const m = niceUp(Math.max(3, 4.5 * s)); return [-m, m, nice(2 * m / 80)]; } },
+  { id: 'cauchy', name: 'Cauchy standard', params: [],
+    note: 'La Cauchy non ha media né varianza: le costanti simulate non si stabilizzano al crescere di n, e molti valori cadono fuori dall’intervallo dell’istogramma.',
+    r: () => Math.tan(Math.PI * (upos() - 0.5)), d: x => 1 / (Math.PI * (1 + x * x)),
+    mom: () => [NaN, NaN, NaN, NaN], range: () => [-10, 10, 0.25] },
+  { id: 'exp', name: 'Esponenziale standard', params: [],
+    r: () => -Math.log(upos()), d: x => (x >= 0 ? Math.exp(-x) : 0),
+    mom: () => [1, 1, 2, 9], range: () => [0, 8, 0.1] },
+  { id: 'gamma', name: 'Gamma a 2 parametri', params: [
+      { k: 'c', sym: 'α', label: 'α, parametro di forma', v: 2, min: 0.05, max: 200 },
+      { k: 'l', sym: 'λ', label: 'λ, parametro di intensità', v: 1, min: 0.01, max: 100 }],
+    note: 'Densità f(x) = λ^α x^(α−1) e^(−λx) / Γ(α), con media α/λ.',
+    r: ({ c, l }) => rgamma1(c) / l,
+    d: (x, { c, l }) => (x > 0 ? Math.exp(c * Math.log(l) + (c - 1) * Math.log(x) - l * x - lgamma(c)) : 0),
+    mom: ({ c, l }) => [c / l, c / (l * l), 2 / Math.sqrt(c), 3 + 6 / c],
+    range: ({ c, l }) => { const m = niceUp((c + 5.5 * Math.sqrt(c)) / l); return [0, m, nice(m / 80)]; } },
+  { id: 'beta', name: 'Beta a 2 parametri (0 < x < 1)', params: [
+      { k: 'a', sym: 'α', label: 'α', v: 2, min: 0.05, max: 200 },
+      { k: 'b', sym: 'β', label: 'β', v: 3, min: 0.05, max: 200 }],
+    r: ({ a, b }) => { const x = rgamma1(a), y = rgamma1(b); return x / (x + y); },
+    d: (x, { a, b }) => (x > 0 && x < 1 ? Math.exp((a - 1) * Math.log(x) + (b - 1) * Math.log(1 - x) - lgamma(a) - lgamma(b) + lgamma(a + b)) : 0),
+    mom: ({ a, b }) => { const s = a + b, m = a / s, v = a * b / (s * s * (s + 1));
+      const sk = 2 * (b - a) * Math.sqrt(s + 1) / ((s + 2) * Math.sqrt(a * b));
+      const ek = 6 * ((a - b) ** 2 * (s + 1) - a * b * (s + 2)) / (a * b * (s + 2) * (s + 3));
+      return [m, v, sk, 3 + ek]; },
+    range: () => [0, 1, 0.02] },
+  { id: 'weib', name: 'Weibull a 2 parametri', params: [
+      { k: 'a', sym: 'α', label: 'α, parametro di forma', v: 1.5, min: 0.1, max: 50 },
+      { k: 'b', sym: 'β', label: 'β, parametro di scala', v: 1, min: 0.01, max: 1000 }],
+    note: 'Ripartizione F(x) = 1 − exp(−(x/β)^α); generazione per inversione.',
+    r: ({ a, b }) => b * Math.pow(-Math.log(upos()), 1 / a),
+    d: (x, { a, b }) => (x > 0 ? (a / b) * Math.pow(x / b, a - 1) * Math.exp(-Math.pow(x / b, a)) : 0),
+    mom: ({ a, b }) => fromRaw(b * G(1 + 1 / a), b * b * G(1 + 2 / a), b ** 3 * G(1 + 3 / a), b ** 4 * G(1 + 4 / a)),
+    range: ({ a, b }) => { const [m, v] = fromRaw(b * G(1 + 1 / a), b * b * G(1 + 2 / a), 0, 1); const M = niceUp(m + 5 * Math.sqrt(v)); return [0, M, nice(M / 80)]; } },
+  { id: 'pois', name: 'Poisson', disc: true, params: [
+      { k: 'l', sym: 'λ', label: 'λ', v: 4, min: 0.01, max: 100 }],
+    r: ({ l }) => { const u = unif(); let k = 0, p = Math.exp(-l), F = p; while (u > F && k < 2000) { k++; p *= l / k; F += p; } return k; },
+    d: (k, { l }) => Math.exp(k * Math.log(l) - l - lgamma(k + 1)),
+    mom: ({ l }) => [l, l, 1 / Math.sqrt(l), 3 + 1 / l],
+    range: ({ l }) => [0, Math.ceil(l + 5 * Math.sqrt(l) + 2), 1] },
+  { id: 'bern', name: 'Indicatore di evento', short: 'Indicatore di evento', disc: true, params: [
+      { k: 'p', sym: 'p', label: 'p, probabilità dell’evento', v: 0.3, min: 0.001, max: 0.999 }],
+    r: ({ p }) => (unif() < p ? 1 : 0), d: (k, { p }) => (k === 0 ? 1 - p : k === 1 ? p : 0),
+    mom: ({ p }) => { const q = 1 - p; return [p, p * q, (q - p) / Math.sqrt(p * q), 3 + (1 - 6 * p * q) / (p * q)]; },
+    range: () => [0, 1, 1] }
+];
+function nice(x) { const p = 10 ** Math.floor(Math.log10(x)), f = x / p; return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p; }
+function niceUp(x) { const p = 10 ** Math.floor(Math.log10(x)); return Math.ceil(x / p * 2) / 2 * p; }
+
+
+
+function normp(p) { const g = rgamma1(1 / p), x = Math.pow(p * g, 1 / p); return unif() < 0.5 ? -x : x; }
+const varNormp = p => Math.pow(p, 2 / p) * G(3 / p) / G(1 / p);
+
+// ================= quadro delle scelte =================
+function syncSetup() {
+  $('formula').textContent = radio('g') === 'lin' ? 'y = β₀ + β₁x + ε' : 'y = β₀ · exp(β₁x) + ε';
+  $('progbox').hidden = radio('xs') !== 'prog'; $('kbdbox').hidden = radio('xs') !== 'kbd';
+  const np = radio('e') === 'normp'; $('pbox').hidden = !np;
+  $('ehint').textContent = np ? 'εᵢ = s·zᵢ, with zᵢ exponential power (normal of order p) in standard form, density proportional to exp(−|z|^p / p): the error variance is s²·p^(2/p)·Γ(3/p)/Γ(1/p).' : 'εᵢ = s·zᵢ, with zᵢ standard normal: the error variance is s².';
+}
+document.querySelectorAll('input[type=radio]').forEach(r => r.addEventListener('change', syncSetup));
+$('newseed').onclick = () => { $('seed').value = 1 + Math.floor(Math.random() * 2147483645); };
+syncSetup();
+
+// ================= colori =================
+const C = {};
+let palette = 'orig';
+try { palette = localStorage.getItem('simul2000-colori-reg') || 'orig'; } catch (e) {}
+$('palette').value = palette;
+function readColors() {
+  const cs = getComputedStyle(document.documentElement), v = n => cs.getPropertyValue('--' + n).trim();
+  ['grid','muted','rule','ink','surface','truec','lines','est','resid','obs','pairs','accent','lp'].forEach(n => C[n] = v(n));
+  if (palette === 'cb') { const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+    Object.assign(C, { truec: dark ? '#F2F4F7' : '#1D2229', lines: dark ? '#56B4E9' : '#0072B2', est: '#E69F00', resid: '#CC79A7', obs: dark ? '#9AA3AF' : '#5F6875', pairs: '#D55E00', lp: '#009E73' }); }
+  legends();
+}
+$('palette').onchange = () => { palette = $('palette').value; try { localStorage.setItem('simul2000-colori-reg', palette); } catch (e) {} readColors(); relayer(); };
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readColors(); relayer(); });
+
+// ================= modello e stato =================
+let S = null;   // piano di simulazione
+let k, B0, B1, P0, P1, YS, fails, running, acc, completing = false, prevY, curY, tStart, lastB, prevB, lastL, prevL;
+function configure() {
+  const num = id => parseFloat(String($(id).value).replace(',', '.'));
+  const lin = radio('g') === 'lin', b0 = num('b0'), b1 = num('b1'), s = num('ss'), n = Math.round(num('n')), m = +$('m').value, nb = Math.round(num('nb'));
+  if (![b0, b1].every(Number.isFinite)) throw 'Choose the true values of β₀ and β₁.';
+  if (!(s > 0)) throw 'The scale parameter s must be positive.';
+  if (!(nb >= 4 && nb <= 50)) throw 'The classes of the histograms must be between 4 and 50.';
+  const ek = radio('e'), p = num('pp');
+  if (ek === 'normp' && !(p >= 0.5 && p <= 50)) throw 'The parameter p must be between 0.5 and 50.';
+  // disegno delle x, fissato per tutti i campioni
+  setSeed(+$('seed').value || 1);
+  let xs;
+  if (radio('xs') === 'prog') { const x0 = num('x0'), dx = num('dx'); if (!Number.isFinite(x0) || !(dx > 0)) throw 'Check initial x and increment (positive).'; if (!(n >= 2 && n <= 500)) throw 'The sample size n must be between 2 and 500.'; xs = Array.from({ length: n }, (_, i) => x0 + i * dx); }
+  else if (radio('xs') === 'rand') { if (!(n >= 2 && n <= 500)) throw 'The sample size n must be between 2 and 500.'; xs = Array.from({ length: n }, () => 1 + (n - 1) * unif()).sort((a, b) => a - b); }
+  else { xs = $('xlist').value.split(';').map(t => parseFloat(t.trim().replace(',', '.'))).filter(Number.isFinite); if (xs.length < 2) throw 'At least two values of x are needed, separated by “;”.'; }
+  if (Math.max(...xs) - Math.min(...xs) <= 0) throw 'The x must have at least two different values.';
+  if ($('xstd').checked) { const mu = xs.reduce((a, b) => a + b, 0) / xs.length, sd = Math.sqrt(xs.reduce((a, b) => a + (b - mu) ** 2, 0) / xs.length); xs = xs.map(x => (x - mu) / sd); }
+  const N = xs.length;
+  if (!lin) { const mx = Math.max(...xs.map(Math.abs)); if (Math.abs(b1) * mx > 30) throw 'With these values exp(β₁x) becomes huge: reduce β₁ or the x.'; }
+  const g = lin ? (x, a, b) => a + b * x : (x, a, b) => a * Math.exp(b * x);
+  const sig2 = s * s * (ek === 'normp' ? varNormp(p) : 1);
+  // matrice di covarianza (esatta o asintotica) delle stime: σ²(X′X)⁻¹, con X = derivate nel vero valore
+  let a11 = 0, a12 = 0, a22 = 0;
+  for (const x of xs) { const d0 = lin ? 1 : Math.exp(b1 * x), d1 = lin ? x : b0 * x * Math.exp(b1 * x); a11 += d0 * d0; a12 += d0 * d1; a22 += d1 * d1; }
+  const det = a11 * a22 - a12 * a12;
+  if (!(det > 1e-12)) throw 'With these x and these parameters the two parameters cannot be estimated separately.';
+  const V = [sig2 * a22 / det, -sig2 * a12 / det, sig2 * a11 / det];   // var b0, cov, var b1
+  const draw = ek === 'normp' ? () => s * normp(p) : () => s * rnorm();
+  S = { lin, b0, b1, s, n: N, m, nb, xs, g, sig2, V, draw, ek, p, rho: V[1] / Math.sqrt(V[0] * V[2]) };
+  // regressione in norma p: con errori normali di ordine p la sua varianza asintotica è (X′X)⁻¹ / I,
+  // con I = E|Z|^(2p−2) / s² l’informazione di Fisher per la posizione
+  S.lp = ek === 'normp' && lin && p >= 1 && $('lpfit').checked;
+  if (S.lp) { const I = Math.pow(p, (2 * p - 2) / p) * G((2 * p - 1) / p) / G(1 / p) / (s * s); S.VL = [a22 / det / I, -a12 / det / I, a11 / det / I]; S.eff = V[0] / S.VL[0]; }
+  // intervalli degli assi
+  const xmin = Math.min(...xs), xmax = Math.max(...xs), xp = (xmax - xmin) * 0.08;
+  S.xr = [xmin - xp, xmax + xp];
+  const sd = Math.sqrt(sig2); let ylo = Infinity, yhi = -Infinity;
+  for (let j = 0; j <= 50; j++) { const x = S.xr[0] + (S.xr[1] - S.xr[0]) * j / 50, y = g(x, b0, b1); ylo = Math.min(ylo, y); yhi = Math.max(yhi, y); }
+  S.yr = [ylo - 3.5 * sd, yhi + 3.5 * sd];
+  const s0 = Math.sqrt(V[0]), s1 = Math.sqrt(V[2]);
+  S.br = [b0 - 4.2 * s0, b0 + 4.2 * s0, b1 - 4.2 * s1, b1 + 4.2 * s1];
+  B0 = new Float64Array(m); B1 = new Float64Array(m); YS = new Array(m); P0 = new Float64Array(m); P1 = new Float64Array(m);
+  const pv = `β₀ = ${fmtp(b0)}; β₁ = ${fmtp(b1)}`;
+  $('title').textContent = `${lin ? 'Linear' : 'Exponential'} regression (${pv})`;
+  $('subtitle').textContent = `${m.toLocaleString('en-US')} samples of ${N} observations; ${ek === 'normp' ? `exponential power errors with p = ${fmtp(p)}` : 'Gaussian errors'} with s = ${fmtp(s)}.`;
+  $('runfoot').textContent = `“Generate” draws one sample at a time; “Start” draws them continuously at the chosen speed; “Complete” draws all the remaining samples at once; “Restart” starts again from the initial seed.`;
+  $('tabDist').disabled = false;
+}
+// stima con i minimi quadrati
+function fit(ys) {
+  const { xs, n } = S;
+  if (S.lin) {
+    let sx = 0, sy = 0, sxx = 0, sxy = 0;
+    for (let i = 0; i < n; i++) { sx += xs[i]; sy += ys[i]; sxx += xs[i] * xs[i]; sxy += xs[i] * ys[i]; }
+    const b = (sxy - sx * sy / n) / (sxx - sx * sx / n); return [sy / n - b * sx / n, b];
+  }
+  // Gauss-Newton per y = a·exp(b·x), con dimezzamento del passo; partenza dalla retta sui logaritmi
+  let a, b;
+  { let sx = 0, sl = 0, sxx = 0, sxl = 0, c = 0; for (let i = 0; i < n; i++) if (ys[i] > 0) { const l = Math.log(ys[i]); sx += xs[i]; sl += l; sxx += xs[i] * xs[i]; sxl += xs[i] * l; c++; }
+    if (c >= 2 && sxx - sx * sx / c > 1e-12) { b = (sxl - sx * sl / c) / (sxx - sx * sx / c); a = Math.exp(sl / c - b * sx / c); } else { a = S.b0; b = S.b1; } }
+  const sse = (a, b) => { let s = 0; for (let i = 0; i < n; i++) { const r = ys[i] - a * Math.exp(b * xs[i]); s += r * r; } return s; };
+  let cur = sse(a, b);
+  for (let it = 0; it < 100; it++) {
+    let j11 = 0, j12 = 0, j22 = 0, g1 = 0, g2 = 0;
+    for (let i = 0; i < n; i++) { const e = Math.exp(b * xs[i]), d0 = e, d1 = a * xs[i] * e, r = ys[i] - a * e; j11 += d0 * d0; j12 += d0 * d1; j22 += d1 * d1; g1 += d0 * r; g2 += d1 * r; }
+    const det = j11 * j22 - j12 * j12; if (!(Math.abs(det) > 1e-300)) break;
+    let da = (j22 * g1 - j12 * g2) / det, db = (j11 * g2 - j12 * g1) / det, t = 1, na, nbv, ns;
+    for (let h = 0; h < 30; h++) { na = a + t * da; nbv = b + t * db; ns = sse(na, nbv); if (ns <= cur) break; t /= 2; }
+    if (!(ns <= cur)) break;
+    const conv = Math.abs(t * da) < 1e-10 * (1 + Math.abs(a)) && Math.abs(t * db) < 1e-10 * (1 + Math.abs(b));
+    a = na; b = nbv; cur = ns; if (conv) break;
+  }
+  return Number.isFinite(a) && Number.isFinite(b) ? [a, b] : [NaN, NaN];
+}
+// regressione in norma p (p ≥ 1): minimo di Σ|yᵢ − a − b·xᵢ|^p, funzione convessa dei due parametri
+function fitLp(ys, start) {
+  const { xs, n, p } = S; let [a, b] = start; if (!Number.isFinite(a)) return [NaN, NaN];
+  if (p === 2) return [a, b];
+  const obj = (a, b) => { let s = 0; for (let i = 0; i < n; i++) s += Math.pow(Math.abs(ys[i] - a - b * xs[i]), p); return s; };
+  if (p === 1) {
+    // norma 1: per ogni b l’intercetta ottima è la mediana di yᵢ − b·xᵢ; la funzione di b è convessa, si minimizza per sezione aurea
+    const r = new Float64Array(n), med = bb => { for (let i = 0; i < n; i++) r[i] = ys[i] - bb * xs[i]; r.sort(); const h = n >> 1; return n % 2 ? r[h] : (r[h - 1] + r[h]) / 2; };
+    const h = bb => obj(med(bb), bb);
+    let sx = 0; for (const x of xs) sx = Math.max(sx, Math.abs(x)); const span = 20 * (Math.abs(b) + S.s / Math.max(sx, 1e-9)) + 1;
+    let lo = b - span, hi = b + span; const gr = (Math.sqrt(5) - 1) / 2;
+    let c = hi - gr * (hi - lo), d = lo + gr * (hi - lo), fc = h(c), fd = h(d);
+    for (let it = 0; it < 200 && hi - lo > 1e-12 * (1 + Math.abs(b)); it++) { if (fc < fd) { hi = d; d = c; fd = fc; c = hi - gr * (hi - lo); fc = h(c); } else { lo = c; c = d; fc = fd; d = lo + gr * (hi - lo); fd = h(d); } }
+    b = (lo + hi) / 2; return [med(b), b];
+  }
+  if (p < 2) {
+    // 1 < p < 2: minimi quadrati pesati iterati, con pesi |rᵢ|^(p−2)
+    const eps = 1e-9 * S.s;
+    for (let it = 0; it < 500; it++) {
+      let s0 = 0, s1 = 0, s2 = 0, t0 = 0, t1 = 0;
+      for (let i = 0; i < n; i++) { const w = Math.pow(Math.max(Math.abs(ys[i] - a - b * xs[i]), eps), p - 2); s0 += w; s1 += w * xs[i]; s2 += w * xs[i] * xs[i]; t0 += w * ys[i]; t1 += w * xs[i] * ys[i]; }
+      const det = s0 * s2 - s1 * s1; if (!(det > 0)) break;
+      const na = (s2 * t0 - s1 * t1) / det, nb = (s0 * t1 - s1 * t0) / det;
+      const conv = Math.abs(na - a) < 1e-12 * (1 + Math.abs(a)) && Math.abs(nb - b) < 1e-12 * (1 + Math.abs(b));
+      a = na; b = nb; if (conv) break;
+    }
+    return [a, b];
+  }
+  // p > 2: metodo di Newton con dimezzamento del passo (la funzione è convessa e due volte derivabile)
+  let f = obj(a, b);
+  for (let it = 0; it < 200; it++) {
+    let g0 = 0, g1 = 0, h00 = 0, h01 = 0, h11 = 0;
+    for (let i = 0; i < n; i++) { const r = ys[i] - a - b * xs[i], ar = Math.abs(r), d1 = -p * Math.sign(r) * Math.pow(ar, p - 1), d2 = p * (p - 1) * Math.pow(ar, p - 2); g0 += d1; g1 += d1 * xs[i]; h00 += d2; h01 += d2 * xs[i]; h11 += d2 * xs[i] * xs[i]; }
+    const det = h00 * h11 - h01 * h01; if (!(det > 0)) break;
+    let da = -(h11 * g0 - h01 * g1) / det, db = -(h00 * g1 - h01 * g0) / det, tt = 1, na, nb, nf;
+    for (let k2 = 0; k2 < 40; k2++) { na = a + tt * da; nb = b + tt * db; nf = obj(na, nb); if (nf <= f) break; tt /= 2; }
+    if (!(nf <= f)) break;
+    const conv = Math.abs(tt * da) < 1e-12 * (1 + Math.abs(a)) && Math.abs(tt * db) < 1e-12 * (1 + Math.abs(b));
+    a = na; b = nb; f = nf; if (conv) break;
+  }
+  return [a, b];
+}
+function reset() {
+  setSeed((+$('seed').value || 1) + 7);   // stessa sequenza a ogni “Inizia”, diversa da quella usata per le x casuali
+  k = 0; fails = 0; running = false; completing = false; acc = 0;
+  prevY = null; curY = null; lastB = null; prevB = null; lastL = null; prevL = null; tStart = 0;
+  $('go').textContent = 'Start'; ['go', 'all', 'gen'].forEach(id => $(id).disabled = false);
+  relayer(); textInit(); update();
+}
+function sample(animate) {
+  if (k >= S.m) return;
+  const ys = S.xs.map(x => S.g(x, S.b0, S.b1) + S.draw());
+  const [a, b] = fit(ys);
+  B0[k] = a; B1[k] = b; if (!Number.isFinite(a)) fails++;
+  if (S.n * S.m <= 2e6) YS[k] = ys;   // per poter ridisegnare i valori osservati se la finestra cambia dimensione
+  let la = NaN, lb = NaN;
+  if (S.lp) { [la, lb] = fitLp(ys, [a, b]); P0[k] = la; P1[k] = lb; prevL = lastL; lastL = [la, lb]; }
+  prevY = curY; prevB = lastB; curY = ys; lastB = [a, b]; tStart = animate ? performance.now() : 0;
+  k++;
+  pendingLayer.push({ ys, a, b, la, lb });
+  textLine(k, a, b, la, lb);
+  if (k >= S.m) { running = false; completing = false; $('go').textContent = 'Done'; ['go', 'all', 'gen'].forEach(id => $(id).disabled = true); }
+}
+function update() {
+  $('count').textContent = `${k.toLocaleString('en-US')} samples out of ${S.m.toLocaleString('en-US')}`;
+  $('bar').style.width = (100 * k / S.m) + '%';
+  $('t1').textContent = `${k} samples`; $('t2').textContent = `${k} pairs of estimates`; $('t3').textContent = k ? `sample no. ${k}` : 'sample';
+  if (!$('dist').hidden) bstats();
+}
+
+// ================= finestra di testo =================
+let textBuf = [];
+function textInit() {
+  const { xs, n, lin, b0, b1, s, m, ek, p, V } = S;
+  const L = [];
+  L.push(`simulation of ${m} samples`);
+  L.push(`from a ${lin ? 'linear' : 'exponential'} regression`);
+  L.push(` b0= ${fnum(b0)}`); L.push(` b1= ${fnum(b1)}`);
+  L.push(`${ek === 'normp' ? `exponential power errors, p = ${fnum(p, 2)}` : 'Gaussian errors'}, s = ${fnum(s)}`);
+  L.push(`sample size ${n}`);
+  L.push('matrix of the x'); L.push(`        1        2`);
+  xs.forEach((x, i) => L.push(`${pad(i + 1, 4)} ${pad(fnum(1, 3), 8)} ${pad(fnum(x, 3), 8)}`));
+  L.push(''); L.push(`${lin && ek === 'gauss' ? 'exact' : 'asymptotic'} variances of the estimates:`);
+  L.push(` var(b0)= ${fnum(V[0], 5)}  var(b1)= ${fnum(V[2], 5)}  corr= ${fnum(S.rho, 3)}`);
+  if (S.lp) { L.push(`asymptotic variances in Lp norm, p = ${fnum(S.p, 2)}:`); L.push(` var(b0)= ${fnum(S.VL[0], 5)}  var(b1)= ${fnum(S.VL[2], 5)}`); }
+  L.push(''); L.push(HEAD());
+  textBuf = L; $('text').textContent = L.join('\n') + '\n';
+}
+let textDirty = false;
+const HEAD = () => S && S.lp ? `   n.        b0        b1     b0(p)     b1(p)` : `   n.        b0        b1`;
+function textLine(j, a, b, la, lb) { textBuf.push(`${pad(j, 5)} ${pad(fnum(a, 4), 9)} ${pad(fnum(b, 4), 9)}${S.lp ? ` ${pad(fnum(la, 4), 9)} ${pad(fnum(lb, 4), 9)}` : ''}${Number.isFinite(a) ? '' : '  (estimation failed)'}`); textDirty = true; }
+function flushText() {
+  if (!textDirty) return; textDirty = false;
+  const pre = $('text'), atEnd = !pre.dataset.held || pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 30;
+  const head = textBuf.slice(0, textBuf.indexOf(HEAD()) + 1), body = textBuf.slice(head.length);
+  pre.textContent = head.join('\n') + '\n' + (body.length > 500 ? `   … (${body.length - 500} earlier lines omitted)\n` : '') + body.slice(-500).join('\n') + '\n';
+  if (atEnd) { pre.scrollTop = pre.scrollHeight; delete pre.dataset.held; }
+}
+// il testo scorre da solo, a meno che chi legge non sia risalito con la rotella, il dito o la tastiera
+['wheel', 'touchmove', 'keydown'].forEach(ev => $('text').addEventListener(ev, () => { const pre = $('text'); setTimeout(() => { if (pre.scrollTop + pre.clientHeight < pre.scrollHeight - 30) pre.dataset.held = '1'; else delete pre.dataset.held; }, 50); }, { passive: true }));
+$('tabText').onclick = () => { $('text').hidden = false; $('dist').hidden = true; $('tabText').setAttribute('aria-selected', 'true'); $('tabDist').setAttribute('aria-selected', 'false'); $('t4').textContent = 'text'; };
+$('tabDist').onclick = () => { $('text').hidden = true; $('dist').hidden = false; $('tabText').setAttribute('aria-selected', 'false'); $('tabDist').setAttribute('aria-selected', 'true'); $('t4').textContent = 'distributions of the b'; bstats(); };
+
+// ================= disegno =================
+function fitCanvas(cv) {
+  const r = cv.getBoundingClientRect(), d = devicePixelRatio || 1, w = Math.round(r.width * d), h = Math.round(r.height * d);
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  const ctx = cv.getContext('2d'); ctx.setTransform(d, 0, 0, d, 0, 0); return { ctx, w: r.width, h: r.height, d };
+}
+function niceStep(span, n) { const raw = span / n, p = 10 ** Math.floor(Math.log10(raw)), f = raw / p; return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p; }
+const decs = st => Math.max(0, -Math.floor(Math.log10(st) + 1e-9));
+// riquadro con assi e griglia; restituisce le funzioni di trasformazione
+function frameAxes(ctx, w, h, xr, yr, opt = {}) {
+  const L = 50, R = 10, T = 8, B = 22, pw = w - L - R, ph = h - T - B;
+  const X = x => L + (x - xr[0]) / (xr[1] - xr[0]) * pw, Y = y => T + (1 - (y - yr[0]) / (yr[1] - yr[0])) * ph;
+  ctx.font = '11px "IBM Plex Sans", Arial, sans-serif'; ctx.lineWidth = 1; ctx.strokeStyle = C.grid; ctx.fillStyle = C.muted;
+  const sx = niceStep(xr[1] - xr[0], opt.nx || 7), sy = niceStep(yr[1] - yr[0], 6), dx = decs(sx), dy = decs(sy);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let x = Math.ceil(xr[0] / sx - 1e-9) * sx; x <= xr[1] + 1e-9; x += sx) { const px = Math.round(X(x)) + .5; ctx.beginPath(); ctx.moveTo(px, T); ctx.lineTo(px, T + ph); ctx.stroke(); ctx.fillText(fmt(Math.abs(x) < 1e-12 ? 0 : x, dx), px, T + ph + 5); }
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let y = Math.ceil(yr[0] / sy - 1e-9) * sy; y <= yr[1] + 1e-9; y += sy) { const py = Math.round(Y(y)) + .5; ctx.beginPath(); ctx.moveTo(L, py); ctx.lineTo(L + pw, py); ctx.stroke(); ctx.fillText(fmt(Math.abs(y) < 1e-12 ? 0 : y, dy), L - 5, py); }
+  ctx.strokeStyle = C.rule; ctx.strokeRect(L + .5, T + .5, pw - 1, ph - 1);
+  return { X, Y, L, T, pw, ph };
+}
+function curve(ctx, X, Y, a, b, xr) {
+  ctx.beginPath();
+  if (S.lin) { ctx.moveTo(X(xr[0]), Y(a + b * xr[0])); ctx.lineTo(X(xr[1]), Y(a + b * xr[1])); }
+  else for (let j = 0; j <= 80; j++) { const x = xr[0] + (xr[1] - xr[0]) * j / 80, px = X(x), py = Y(a * Math.exp(b * x)); j ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+}
+// strati permanenti: rette e punti della finestra 1, coppie di stime della finestra 2
+const L1 = document.createElement('canvas'), L2 = document.createElement('canvas');
+let pendingLayer = [], layerKey = '';
+function relayer() { layerKey = ''; }
+function syncLayers(c1, c2) {
+  const key = [c1.w, c1.h, c1.d, c2.w, c2.h, palette].join('|');
+  if (key !== layerKey) {
+    layerKey = key;
+    for (const [L, c] of [[L1, c1], [L2, c2]]) { L.width = Math.round(c.w * c.d); L.height = Math.round(c.h * c.d); }
+    pendingLayer = [];
+    for (let j = 0; j < k; j++) pendingLayer.push({ ys: YS[j] || null, a: B0[j], b: B1[j], la: S.lp ? P0[j] : NaN, lb: S.lp ? P1[j] : NaN, old: true });
+  }
+}
+function paintLayers(c1, c2, A1, A2) {
+  if (!pendingLayer.length) return;
+  const l1 = L1.getContext('2d'), l2 = L2.getContext('2d');
+  l1.setTransform(c1.d, 0, 0, c1.d, 0, 0); l2.setTransform(c2.d, 0, 0, c2.d, 0, 0);
+  const many = S.m > 1000, la = many ? .12 : S.m > 300 ? .3 : .55;
+  l1.save(); l1.beginPath(); l1.rect(A1.L, A1.T, A1.pw, A1.ph); l1.clip();
+  l1.strokeStyle = C.lines; l1.globalAlpha = la; l1.lineWidth = 1;
+  for (const it of pendingLayer) if (Number.isFinite(it.a)) { curve(l1, A1.X, A1.Y, it.a, it.b, S.xr); l1.stroke(); }
+  l1.globalAlpha = many ? .15 : .7; l1.fillStyle = C.obs;
+  for (const it of pendingLayer) if (it.ys) { l1.beginPath(); S.xs.forEach((x, i) => { l1.moveTo(A1.X(x) + 2.6, A1.Y(it.ys[i])); l1.arc(A1.X(x), A1.Y(it.ys[i]), 2.6, 0, 2 * Math.PI); }); l1.fill(); }
+  l1.restore(); l1.globalAlpha = 1;
+  l2.save(); l2.beginPath(); l2.rect(A2.L, A2.T, A2.pw, A2.ph); l2.clip();
+  const r = S.m > 1000 ? 1.3 : S.m > 300 ? 2 : 2.5; l2.fillStyle = C.pairs; l2.globalAlpha = S.m > 1000 ? .5 : .9; l2.beginPath();
+  for (const it of pendingLayer) if (Number.isFinite(it.a)) { const px = A2.X(it.a), py = A2.Y(it.b); l2.moveTo(px + r, py); l2.arc(px, py, r, 0, 2 * Math.PI); }
+  l2.fill();
+  if (S.lp) { l2.fillStyle = C.lp; l2.beginPath(); for (const it of pendingLayer) if (Number.isFinite(it.la)) { const px = A2.X(it.la), py = A2.Y(it.lb); l2.moveTo(px + r, py); l2.arc(px, py, r, 0, 2 * Math.PI); } l2.fill(); }
+  l2.restore(); l2.globalAlpha = 1;
+  pendingLayer = [];
+}
+const ease = t => t < 0 ? 0 : t > 1 ? 1 : 1 - Math.pow(1 - t, 3);
+function draw(now) {
+  if ($('run').hidden || !S) return;
+  const c1 = fitCanvas($('w1')), c2 = fitCanvas($('w2')), c3 = fitCanvas($('w3'));
+  const xr = S.xr, yr = S.yr, br = S.br;
+  // tempo dell’animazione dell’ultimo campione: i punti e la retta scivolano dalla posizione precedente
+  const dur = Math.min(600, 900 / Math.max(1, +$('speed').value) * 1.6);
+  const t = reduce || !tStart ? 1 : ease((now - tStart) / dur);
+  // finestra 1
+  c1.ctx.clearRect(0, 0, c1.w, c1.h);
+  const A1 = frameAxes(c1.ctx, c1.w, c1.h, xr, yr);
+  c2.ctx.clearRect(0, 0, c2.w, c2.h);
+  const A2 = frameAxes(c2.ctx, c2.w, c2.h, [br[0], br[1]], [br[2], br[3]], { nx: 6 });
+  syncLayers(c1, c2);
+  // la retta dell’ultimo campione entra nello strato permanente solo a fine animazione
+  const keep = t < 1 && pendingLayer.length ? pendingLayer.pop() : null;
+  paintLayers(c1, c2, A1, A2);
+  if (keep) pendingLayer.push(keep);
+  c1.ctx.drawImage(L1, 0, 0, c1.w, c1.h);
+  c1.ctx.save(); c1.ctx.beginPath(); c1.ctx.rect(A1.L, A1.T, A1.pw, A1.ph); c1.ctx.clip();
+  c1.ctx.strokeStyle = C.truec; c1.ctx.lineWidth = 3; curve(c1.ctx, A1.X, A1.Y, S.b0, S.b1, xr); c1.ctx.stroke();
+  let ca = null, cb = null;
+  if (lastB && Number.isFinite(lastB[0])) {
+    const pa = prevB && Number.isFinite(prevB[0]) ? prevB : lastB;
+    ca = pa[0] + (lastB[0] - pa[0]) * t; cb = pa[1] + (lastB[1] - pa[1]) * t;
+    c1.ctx.strokeStyle = C.surface; c1.ctx.lineWidth = 5; curve(c1.ctx, A1.X, A1.Y, ca, cb, xr); c1.ctx.stroke();
+    c1.ctx.strokeStyle = C.est; c1.ctx.lineWidth = 2.5; c1.ctx.stroke();
+  }
+  c1.ctx.restore();
+  // finestra 2: ellissi di equiprobabilità della distribuzione (normale) delle stime
+  c2.ctx.drawImage(L2, 0, 0, c2.w, c2.h);
+  { const ctx = c2.ctx, [v0, cv, v1] = S.V, tr = v0 + v1, dt = v0 * v1 - cv * cv, disc = Math.sqrt(Math.max(0, tr * tr / 4 - dt)), l1 = tr / 2 + disc, l2 = tr / 2 - disc;
+    const ang = Math.abs(cv) < 1e-15 ? (v0 >= v1 ? 0 : Math.PI / 2) : Math.atan2(l1 - v0, cv);
+    const ex = [Math.cos(ang), Math.sin(ang)], ey = [-Math.sin(ang), Math.cos(ang)];
+    ctx.save(); ctx.beginPath(); ctx.rect(A2.L, A2.T, A2.pw, A2.ph); ctx.clip();
+    [[0.5, C.lines], [0.8, C.est], [0.95, C.truec], [0.99, C.ink]].forEach(([p, col]) => {
+      const c = Math.sqrt(-2 * Math.log(1 - p)); ctx.strokeStyle = col; ctx.lineWidth = 1.4; ctx.beginPath();
+      for (let j = 0; j <= 120; j++) { const th = 2 * Math.PI * j / 120, u = c * Math.sqrt(l1) * Math.cos(th), v = c * Math.sqrt(Math.max(0, l2)) * Math.sin(th), x = S.b0 + u * ex[0] + v * ey[0], y = S.b1 + u * ex[1] + v * ey[1]; j ? ctx.lineTo(A2.X(x), A2.Y(y)) : ctx.moveTo(A2.X(x), A2.Y(y)); }
+      ctx.stroke();
+      const q = l2 / l1 < 0.25 ? 0 : Math.PI / 4, uu = c * Math.sqrt(l1) * Math.cos(q), vv = c * Math.sqrt(Math.max(0, l2)) * Math.sin(q), lx = S.b0 + uu * ex[0] + vv * ey[0], ly = S.b1 + uu * ex[1] + vv * ey[1]; ctx.fillStyle = col; ctx.font = '10.5px "IBM Plex Sans", Arial, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText(`p = ${fmt(p, 2)}`, A2.X(lx) + 3, A2.Y(ly) - 1);
+    });
+    ctx.strokeStyle = C.ink; ctx.lineWidth = 1.5; const px = A2.X(S.b0), py = A2.Y(S.b1); ctx.beginPath(); ctx.moveTo(px - 7, py); ctx.lineTo(px + 7, py); ctx.moveTo(px, py - 7); ctx.lineTo(px, py + 7); ctx.stroke();
+    // per la norma p, l’ellisse al 95% della sua distribuzione asintotica, tratteggiata
+    if (S.lp) { const [w0, wc, w1] = S.VL, trL = w0 + w1, dtL = w0 * w1 - wc * wc, dsL = Math.sqrt(Math.max(0, trL * trL / 4 - dtL)), m1 = trL / 2 + dsL, m2 = trL / 2 - dsL;
+      const angL = Math.abs(wc) < 1e-15 ? (w0 >= w1 ? 0 : Math.PI / 2) : Math.atan2(m1 - w0, wc), fx = [Math.cos(angL), Math.sin(angL)], fy = [-Math.sin(angL), Math.cos(angL)], c = Math.sqrt(-2 * Math.log(0.05));
+      ctx.strokeStyle = C.lp; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.beginPath();
+      for (let j = 0; j <= 120; j++) { const th = 2 * Math.PI * j / 120, u = c * Math.sqrt(m1) * Math.cos(th), v = c * Math.sqrt(Math.max(0, m2)) * Math.sin(th), x = S.b0 + u * fx[0] + v * fy[0], y = S.b1 + u * fx[1] + v * fy[1]; j ? ctx.lineTo(A2.X(x), A2.Y(y)) : ctx.moveTo(A2.X(x), A2.Y(y)); }
+      ctx.stroke(); ctx.setLineDash([]); }
+    if (ca !== null) { ctx.fillStyle = C.est; ctx.strokeStyle = C.ink; ctx.beginPath(); ctx.arc(A2.X(ca), A2.Y(cb), 5.5, 0, 2 * Math.PI); ctx.fill(); ctx.stroke(); }
+    if (S.lp && lastL && Number.isFinite(lastL[0])) { const pl = prevL && Number.isFinite(prevL[0]) ? prevL : lastL, la = pl[0] + (lastL[0] - pl[0]) * t, lb = pl[1] + (lastL[1] - pl[1]) * t, px = A2.X(la), py = A2.Y(lb);
+      ctx.fillStyle = C.lp; ctx.strokeStyle = C.ink; ctx.beginPath(); ctx.moveTo(px, py - 7); ctx.lineTo(px + 7, py); ctx.lineTo(px, py + 7); ctx.lineTo(px - 7, py); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    ctx.restore();
+    ctx.fillStyle = C.muted; ctx.font = '11px "IBM Plex Sans", Arial, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('b₁', A2.L + 4, A2.T + 3); ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText('b₀', A2.L + A2.pw - 4, A2.T + A2.ph - 3);
+  }
+  // finestra 3: il campione corrente, con retta vera, retta stimata e residui
+  c3.ctx.clearRect(0, 0, c3.w, c3.h);
+  const A3 = frameAxes(c3.ctx, c3.w, c3.h, xr, yr);
+  { const ctx = c3.ctx; ctx.save(); ctx.beginPath(); ctx.rect(A3.L, A3.T, A3.pw, A3.ph); ctx.clip();
+    ctx.strokeStyle = C.truec; ctx.lineWidth = 2; curve(ctx, A3.X, A3.Y, S.b0, S.b1, xr); ctx.stroke();
+    if (curY) {
+      const ys = curY.map((y, i) => prevY ? prevY[i] + (y - prevY[i]) * t : y);
+      if (ca !== null) {
+        ctx.strokeStyle = C.resid; ctx.lineWidth = 1.6; ctx.beginPath();
+        S.xs.forEach((x, i) => { ctx.moveTo(A3.X(x), A3.Y(ys[i])); ctx.lineTo(A3.X(x), A3.Y(S.g(x, ca, cb))); }); ctx.stroke();
+        ctx.strokeStyle = C.est; ctx.lineWidth = 2.2; ctx.setLineDash([7, 4]); curve(ctx, A3.X, A3.Y, ca, cb, xr); ctx.stroke(); ctx.setLineDash([]);
+        if (S.lp && lastL && Number.isFinite(lastL[0])) { const pl = prevL && Number.isFinite(prevL[0]) ? prevL : lastL; ctx.strokeStyle = C.lp; ctx.lineWidth = 2.2; ctx.setLineDash([2, 4]); curve(ctx, A3.X, A3.Y, pl[0] + (lastL[0] - pl[0]) * t, pl[1] + (lastL[1] - pl[1]) * t, xr); ctx.stroke(); ctx.setLineDash([]); }
+      }
+      const r = S.n > 60 ? 3 : 5;
+      ctx.fillStyle = C.est; ctx.strokeStyle = C.ink; ctx.lineWidth = 1.2;
+      S.xs.forEach((x, i) => { ctx.beginPath(); ctx.arc(A3.X(x), A3.Y(ys[i]), r, 0, 2 * Math.PI); ctx.fill(); ctx.stroke(); });
+    }
+    ctx.restore();
+  }
+  flushText();
+}
+function legends() {
+  $('f1').innerHTML = `<span><i style="border-color:${C.truec}"></i>true relationship</span><span><i style="border-color:${C.lines}"></i>fitted lines</span><span><i style="border-color:${C.est}"></i>latest fit</span><span><b style="background:${C.obs}"></b>observed values</span>`;
+  $('f2').innerHTML = `<span><b style="background:${C.pairs}"></b>(b₀, b₁) of each sample</span><span>+ true value</span><span>equiprobability ellipses of the ${S && S.lin && S.ek === 'gauss' ? 'exact' : 'asymptotic'} distribution of the estimates</span>${S && S.lp ? `<span><b style="background:${C.lp}"></b>L<sub>p</sub>-norm estimates, with their dashed 95% ellipse</span>` : ''}`;
+  $('f3').innerHTML = `<span><i style="border-color:${C.truec}"></i>true relationship</span><span><i style="border-color:${C.est};border-top-style:dashed"></i>fitted relationship</span><span><i style="border-color:${C.resid}"></i>residuals</span>${S && S.lp ? `<span><i style="border-color:${C.lp};border-top-style:dotted"></i>fitted in L<sub>p</sub> norm</span>` : ''}`;
+}
+// istogrammi delle stime, con la normale teorica
+function bstats() {
+  if (!S) return;
+  const pairs = [[B0, S.b0, S.V[0], 'b₀', $('hb0'), P0, S.VL && S.VL[0]], [B1, S.b1, S.V[2], 'b₁', $('hb1'), P1, S.VL && S.VL[2]]], rows = [];
+  for (const [arr, mu, v, lab, cv, parr, vl] of pairs) {
+    let s = 0, s2 = 0, c = 0; for (let j = 0; j < k; j++) if (Number.isFinite(arr[j])) { s += arr[j]; s2 += arr[j] * arr[j]; c++; }
+    const mean = c ? s / c : NaN, vv = c > 1 ? (s2 - c * mean * mean) / (c - 1) : NaN;
+    rows.push(`<tr><td>${lab}${S.lp ? ' (L2 norm)' : ''}</td><td>${fmt(mean, 4)}</td><td>${fmt(vv, 5)}</td><td>${fmt(v, 5)}</td></tr>`);
+    let pm = NaN, pv = NaN, pc = 0;
+    if (S.lp) { let a = 0, a2 = 0; for (let j = 0; j < k; j++) if (Number.isFinite(parr[j])) { a += parr[j]; a2 += parr[j] * parr[j]; pc++; } pm = pc ? a / pc : NaN; pv = pc > 1 ? (a2 - pc * pm * pm) / (pc - 1) : NaN;
+      rows.push(`<tr><td>${lab} (Lp norm)</td><td>${fmt(pm, 4)}</td><td>${fmt(pv, 5)}</td><td>${fmt(vl, 5)}</td></tr>`); }
+    const { ctx, w, h } = fitCanvas(cv); ctx.clearRect(0, 0, w, h);
+    const sd = Math.sqrt(v), lo = mu - 4 * sd, hi = mu + 4 * sd, nb = S.nb, bw = (hi - lo) / nb, cnt = new Float64Array(nb);
+    for (let j = 0; j < k; j++) { const b = Math.floor((arr[j] - lo) / bw); if (b >= 0 && b < nb) cnt[b]++; }
+    const dens = Array.from(cnt, x => c ? x / (c * bw) : 0);
+    let pd = null; if (S.lp) { const pcnt = new Float64Array(nb); for (let j = 0; j < k; j++) { const b = Math.floor((parr[j] - lo) / bw); if (b >= 0 && b < nb) pcnt[b]++; } pd = Array.from(pcnt, x => pc ? x / (pc * bw) : 0); }
+    const top = 1.15 * Math.max(...dens, ...(pd || [0]), 1 / (sd * Math.sqrt(2 * Math.PI)), S.lp ? 1 / Math.sqrt(2 * Math.PI * vl) : 0);
+    const A = frameAxes(ctx, w, h, [lo, hi], [0, top], { nx: 6 });
+    ctx.fillStyle = C.pairs; ctx.globalAlpha = .7;
+    dens.forEach((dv, i) => { if (dv > 0) { const x0 = A.X(lo + i * bw), x1 = A.X(lo + (i + 1) * bw); ctx.fillRect(x0 + .5, A.Y(dv), x1 - x0 - 1, A.Y(0) - A.Y(dv)); } });
+    ctx.globalAlpha = 1; ctx.strokeStyle = C.ink; ctx.lineWidth = 1.6; ctx.beginPath();
+    for (let j = 0; j <= 120; j++) { const x = lo + (hi - lo) * j / 120, y = Math.exp(-0.5 * ((x - mu) / sd) ** 2) / (sd * Math.sqrt(2 * Math.PI)); j ? ctx.lineTo(A.X(x), A.Y(y)) : ctx.moveTo(A.X(x), A.Y(y)); }
+    ctx.stroke();
+    if (pd) { // istogramma delle stime in norma p, come contorno, con la sua normale asintotica tratteggiata
+      ctx.strokeStyle = C.lp; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(A.X(lo), A.Y(0));
+      pd.forEach((dv, i) => { ctx.lineTo(A.X(lo + i * bw), A.Y(dv)); ctx.lineTo(A.X(lo + (i + 1) * bw), A.Y(dv)); }); ctx.lineTo(A.X(hi), A.Y(0)); ctx.stroke();
+      const sl = Math.sqrt(vl); ctx.setLineDash([5, 3]); ctx.lineWidth = 1.5; ctx.beginPath();
+      for (let j = 0; j <= 120; j++) { const x = lo + (hi - lo) * j / 120, y = Math.exp(-0.5 * ((x - mu) / sl) ** 2) / (sl * Math.sqrt(2 * Math.PI)); j ? ctx.lineTo(A.X(x), A.Y(y)) : ctx.moveTo(A.X(x), A.Y(y)); }
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+    ctx.fillStyle = C.muted; ctx.font = '600 11px "IBM Plex Sans", Arial, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(`distribution of ${lab}`, A.L + 5, A.T + 3); if (S.lp) { ctx.font = '10.5px "IBM Plex Sans", Arial, sans-serif'; ctx.fillText('bars: L2 norm · outline: Lp norm', A.L + 5, A.T + 17); }
+  }
+  $('bstats').innerHTML = rows.join('');
+}
+
+// ================= ciclo e comandi =================
+let prev = performance.now(), lastStats = 0;
+function frame(now) {
+  const dt = Math.min(0.2, (now - prev) / 1000); prev = now;
+  if (S && !$('run').hidden) {
+    if (completing) { const t0 = performance.now(); while (completing && k < S.m && performance.now() - t0 < 25) sample(false); if (k >= S.m) completing = false; update(); }
+    if (running) { acc += dt; const step = 1 / +$('speed').value; let c = 0; while (acc >= step && running && c < 6) { sample(true); acc -= step; c++; } if (c) update(); }
+    if (!$('dist').hidden && now - lastStats > 400) { lastStats = now; bstats(); }
+  }
+  draw(now); requestAnimationFrame(frame);
+}
+function speedText() { $('speedval').textContent = `${$('speed').value}/s`; }
+$('speed').addEventListener('input', speedText); speedText();
+$('ok').onclick = () => {
+  try { configure(); } catch (e) { $('err').textContent = typeof e === 'string' ? e : 'Error in the chosen values.'; console.error(e); return; }
+  $('err').textContent = ''; $('setup').hidden = true; $('run').hidden = false; window.scrollTo(0, 0);
+  readColors(); reset();
+};
+$('back').onclick = () => { running = false; completing = false; $('run').hidden = true; $('setup').hidden = false; $('title').textContent = 'Simulation of regression models'; };
+$('reset').onclick = reset;
+$('gen').onclick = () => { running = false; $('go').textContent = 'Start'; sample(true); update(); };
+$('go').onclick = () => { if (k >= S.m) return; running = !running; acc = 1 / +$('speed').value; $('go').textContent = running ? 'Pause' : 'Start'; };
+$('all').onclick = () => { if (k >= S.m) return; running = false; completing = true; $('go').textContent = 'Computing…'; ['go', 'all', 'gen'].forEach(id => $(id).disabled = true); };
+readColors(); requestAnimationFrame(frame);
+window.__simul = { configure, reset, sample, fit, fitLp, get S() { return S; }, get B() { return [B0, B1, k, P0, P1]; } };
+})();
+</script>
+<script>(()=>{const s=document.querySelector('.themesel'); if(!s||!window.simulTheme) return; const mark=()=>s.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.t===simulTheme.get()))); s.addEventListener('click',e=>{const b=e.target.closest('button'); if(b){simulTheme.set(b.dataset.t); mark();}}); mark();})();</script>
+<script>
+// salva un’immagine PNG con i grafici visibili disposti come sullo schermo, più titolo, parametri e tabelle dei risultati
+(() => {
+  const btn = document.getElementById('saveimg'); if (!btn) return;
+  const toast = msg => { const d = document.createElement('div'); d.className = 'toast'; d.setAttribute('role', 'status'); d.textContent = msg; document.body.appendChild(d); setTimeout(() => d.remove(), 4200); };
+  const visible = el => el && el.offsetParent !== null && el.getBoundingClientRect().width > 0;
+  btn.addEventListener('click', () => {
+    const ov = document.getElementById('ov');
+    const root = ov && !ov.hidden ? ov : (document.getElementById('run') || document.querySelector('.layout'));
+    if (!root || root.hidden) { toast('Run a simulation first: the results screen is what gets saved.'); return; }
+    const cvs = [...root.querySelectorAll('canvas')].filter(visible);
+    if (!cvs.length) { toast('There are no charts to save.'); return; }
+    // anche le finestre di testo e i titoli delle finestre, nella loro posizione
+    const pres = [...root.querySelectorAll('pre')].filter(visible), titles = [...root.querySelectorAll('.wtitle, .htitle')].filter(visible);
+    const R = [...cvs, ...pres, ...titles].map(c => c.getBoundingClientRect());
+    const x0 = Math.min(...R.map(r => r.left)), y0 = Math.min(...R.map(r => r.top)), x1 = Math.max(...R.map(r => r.right)), y1 = Math.max(...R.map(r => r.bottom));
+    const cs = getComputedStyle(document.documentElement), v = n => cs.getPropertyValue('--' + n).trim();
+    const bg = v('bg') || '#fff', ink = v('ink') || '#000', muted = v('muted') || '#666', rule = v('rule') || '#ccc';
+    // testi: titolo, parametri, e righe delle tabelle e dei riepiloghi visibili
+    const h1 = document.querySelector('#title') || document.querySelector('h1'), sub = document.querySelector('#subtitle') || document.querySelector('header p');
+    const lines = [];
+    ['count', 'eq', 'outside', 'ci', 'cov', 'ratio', 'chi'].forEach(id => { const e = document.getElementById(id); if (visible(e) && e.textContent.trim()) lines.push(e.textContent.trim()); });
+    // tabelle in colonne allineate: la prima a sinistra, le altre a destra
+    root.querySelectorAll('table').forEach(tb => { if (!visible(tb) || tb.closest('.freqwrap')) return;
+      const rows = [...tb.querySelectorAll('tr')].map(tr => [...tr.children].map(td => td.textContent.trim())).filter(c => c.some(Boolean)); if (!rows.length) return;
+      const nc = Math.max(...rows.map(r => r.length)), w = Array.from({ length: nc }, (_, j) => Math.max(...rows.map(r => (r[j] || '').length)));
+      lines.push(''); rows.forEach(r => lines.push(w.map((wj, j) => j ? (r[j] || '').padStart(wj) : (r[j] || '').padEnd(wj)).join('   '))); });
+    const s = 2, W = Math.max(x1 - x0, 760), pad = 24, headH = 74, lh = 18, footH = lines.length * lh + 46;
+    const out = document.createElement('canvas'); out.width = (W + 2 * pad) * s; out.height = (headH + (y1 - y0) + footH + pad) * s;
+    const ctx = out.getContext('2d'); ctx.scale(s, s);
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, out.width, out.height);
+    ctx.fillStyle = ink; ctx.font = '500 21px "IBM Plex Serif", Georgia, serif'; ctx.textBaseline = 'top';
+    ctx.fillText(h1 ? h1.textContent.trim() : document.title, pad, pad - 4, W);
+    ctx.fillStyle = muted; ctx.font = '13px "IBM Plex Sans", Arial, sans-serif';
+    if (sub) ctx.fillText(sub.textContent.trim(), pad, pad + 26, W);
+    ctx.strokeStyle = rule; ctx.beginPath(); ctx.moveTo(pad, headH - 6); ctx.lineTo(pad + W, headH - 6); ctx.stroke();
+    cvs.forEach((c, i) => { const r = R[i]; try { ctx.drawImage(c, pad + r.left - x0, headH + r.top - y0, r.width, r.height); } catch (e) {} });
+    pres.forEach((pe, i) => { const r = R[cvs.length + i], X = pad + r.left - x0, Y = headH + r.top - y0, ls = pe.textContent.replace(/\n+$/, '').split('\n'), n = Math.max(1, Math.floor((r.height - 12) / 15));
+      ctx.save(); ctx.beginPath(); ctx.rect(X, Y, r.width, r.height); ctx.clip(); ctx.fillStyle = v('textbg') || bg; ctx.fillRect(X, Y, r.width, r.height);
+      ctx.fillStyle = ink; ctx.font = '11.5px "IBM Plex Mono", Menlo, Consolas, monospace'; ctx.textBaseline = 'top';
+      const show = ls.length > n ? [...ls.slice(0, Math.min(14, n - 6)), '   …', ...ls.slice(-(n - Math.min(14, n - 6) - 1))] : ls;
+      show.forEach((l, j) => ctx.fillText(l, X + 10, Y + 8 + j * 15)); ctx.restore(); });
+    titles.forEach((el, i) => { const r = R[cvs.length + pres.length + i], c = el.cloneNode(true); c.querySelectorAll('.tabs, button').forEach(b => b.remove());
+      ctx.fillStyle = ink; ctx.font = '600 13px "IBM Plex Sans", Arial, sans-serif'; ctx.textBaseline = 'middle'; ctx.fillText(c.textContent.trim(), pad + r.left - x0 + 10, headH + r.top - y0 + r.height / 2, r.width - 20); ctx.textBaseline = 'top'; });
+    let y = headH + (y1 - y0) + 18;
+    ctx.fillStyle = ink; ctx.font = '12.5px "IBM Plex Mono", Menlo, Consolas, monospace';
+    lines.forEach(l => { ctx.fillText(l, pad, y, W); y += lh; });
+    const d = new Date(), p2 = n => String(n).padStart(2, '0');
+    ctx.fillStyle = muted; ctx.font = '11.5px "IBM Plex Sans", Arial, sans-serif';
+    ctx.fillText(`Simul2000 · Simulations in Statistics · ${d.toLocaleDateString('en-GB')} ${p2(d.getHours())}:${p2(d.getMinutes())}`, pad, y + 6);
+    const name = `simul2000_${(location.pathname.split('/').pop() || 'grafico').replace(/\.html?$/, '').replace(/^simul_/, '')}_${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}_${p2(d.getHours())}${p2(d.getMinutes())}.png`;
+    if (/claude/i.test(location.hostname)) { toast('Saving is not allowed in the claude.ai preview: it works when the pages are opened from the program folder.'); return; }
+    out.toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); toast('Image saved: ' + name); }, 'image/png');
+  });
+})();
+</script>
+<script>
+(() => { const ok = document.getElementById('ok'), top = document.getElementById('oktop'); if (!ok || !top) return;
+  top.textContent = ok.textContent.trim() + ' ▶';
+  top.addEventListener('click', () => { ok.click(); const e = document.getElementById('err'); if (e && e.textContent.trim() && !document.getElementById('setup').hidden) e.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+})();
+</script>
+<script>(()=>{ // nell’anteprima su claude.ai ogni pagina è pubblicata a parte: i collegamenti puntano alle pagine pubblicate
+  if (!/claude/i.test(location.hostname)) return; const A = id => 'https://claude.ai/artifact/' + id;
+  const h = document.getElementById('homelink'), l = document.getElementById('langlink');
+  if (h) { h.href = A('7LfJGBvPKHLBxjGFFReBT6'); h.target = '_blank'; h.rel = 'noopener'; }
+  if (l) { l.href = A('2EGFKz69bbBMPTRB8BmCH7'); l.target = '_blank'; l.rel = 'noopener'; }
+})();</script>
+</body>
+</html>

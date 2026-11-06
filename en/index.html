@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>
+// tema dello sfondo: automatico (come il sistema), chiaro o scuro; la scelta vale per tutte le pagine di Simul2000.
+// Le pagine chiedono il tema con matchMedia('(prefers-color-scheme: dark)'): qui la risposta tiene conto della scelta fatta
+(() => {
+  const KEY = 'simul2000-tema'; let pref = 'auto';
+  try { pref = localStorage.getItem(KEY) || 'auto'; } catch (e) {}
+  const real = window.matchMedia.bind(window), sys = real('(prefers-color-scheme: dark)'), listeners = new Set();
+  const dark = () => pref === 'dark' || (pref === 'auto' && sys.matches);
+  const apply = () => { const r = document.documentElement; if (pref === 'auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', pref); };
+  const notify = () => { const ev = { matches: dark(), media: '(prefers-color-scheme: dark)' }; listeners.forEach(f => { try { f(ev); } catch (e) {} }); };
+  const fake = { media: '(prefers-color-scheme: dark)', onchange: null, get matches() { return dark(); },
+    addEventListener: (t, f) => listeners.add(f), removeEventListener: (t, f) => listeners.delete(f), addListener: f => listeners.add(f), removeListener: f => listeners.delete(f), dispatchEvent: () => true };
+  sys.addEventListener('change', () => { if (pref === 'auto') notify(); });
+  window.matchMedia = q => (/prefers-color-scheme:\s*dark/.test(q) ? fake : real(q));
+  window.simulTheme = { get: () => pref, set(v) { pref = v; try { localStorage.setItem(KEY, v); } catch (e) {} apply(); notify(); } };
+  apply();
+})();
+</script>
+
+<title>Simul2000 · Simulations in Statistics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F5F6F8; --surface:#FFFFFF; --ink:#1D2229; --muted:#5F6875; --rule:#DDE1E6; --accent:#3C5A99;
+  --hi:rgba(255,255,255,.8); --lo:rgba(0,0,0,.07); --drop:rgba(30,40,60,.12);
+  --t1:#E7ECF6; --t2:#EEF0F2; --t3:#F3EEDC; --t4:#F8E3E3; --t5:#FBE7D6; --t6:#FBF3C9; --t7:#E2F3E4; --t8:#DDF2F4; --t9:#F5E1F2; --t10:#E6E3F7; --t11:#EEF0F2; --t12:#EEF0F2;
+  --i1:#3C5A99; --i2:#5F6875; --i3:#8A6D1F; --i4:#B3261E; --i5:#B3561E; --i6:#8A7400; --i7:#2E7D3E; --i8:#1F7A85; --i9:#9B2F8C; --i10:#5A4BB5; --i11:#5F6875; --i12:#5F6875;
+  color-scheme:light; box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --hi:rgba(255,255,255,.08); --lo:rgba(0,0,0,.35); --drop:rgba(0,0,0,.5);
+    --bg:#15181D; --surface:#1D2128; --ink:#E6E9ED; --muted:#9AA3AF; --rule:#2F353F; --accent:#8FB0F0;
+    --t1:#222B3B; --t2:#23272E; --t3:#2C291F; --t4:#33221F; --t5:#33271E; --t6:#302C18; --t7:#1E2E22; --t8:#1B2D30; --t9:#2E1F2C; --t10:#25223A; --t11:#23272E; --t12:#23272E;
+    --i1:#8FB0F0; --i2:#B5BDC8; --i3:#E0C068; --i4:#FF8A80; --i5:#FFAB70; --i6:#EBD36A; --i7:#7FD891; --i8:#6FD3DE; --i9:#E890DA; --i10:#AFA4FF; --i11:#B5BDC8; --i12:#B5BDC8;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --hi:rgba(255,255,255,.08); --lo:rgba(0,0,0,.35); --drop:rgba(0,0,0,.5);
+  --bg:#15181D; --surface:#1D2128; --ink:#E6E9ED; --muted:#9AA3AF; --rule:#2F353F; --accent:#8FB0F0;
+  --t1:#222B3B; --t2:#23272E; --t3:#2C291F; --t4:#33221F; --t5:#33271E; --t6:#302C18; --t7:#1E2E22; --t8:#1B2D30; --t9:#2E1F2C; --t10:#25223A; --t11:#23272E; --t12:#23272E;
+  --i1:#8FB0F0; --i2:#B5BDC8; --i3:#E0C068; --i4:#FF8A80; --i5:#FFAB70; --i6:#EBD36A; --i7:#7FD891; --i8:#6FD3DE; --i9:#E890DA; --i10:#AFA4FF; --i11:#B5BDC8; --i12:#B5BDC8;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:400 16px/1.55 "IBM Plex Sans","Helvetica Neue",Arial,sans-serif}
+.wrap{max-width:74rem;margin:0 auto;padding:2.5rem 1.25rem 3rem}
+header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1rem 2rem;align-items:end;margin-bottom:2rem}
+h1{font:400 clamp(2.2rem,5vw,3.4rem)/1.05 "IBM Plex Serif",Georgia,serif;margin:0;letter-spacing:-.01em}
+h1 em{font-style:italic;color:var(--accent)}
+.by{margin:.6rem 0 0;color:var(--muted);font-size:1.05rem}
+.lede{margin:1rem 0 0;max-width:60ch;font-size:1.05rem}
+.badge{font-variant-numeric:tabular-nums;color:var(--muted);font-size:.9rem;text-align:right;line-height:1.4}
+.badge b{display:block;font:500 1.6rem/1.1 "IBM Plex Serif",Georgia,serif;color:var(--ink)}
+h2{font:600 .85rem/1.3 "IBM Plex Sans",Arial,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:2.2rem 0 .8rem}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.9rem}
+a.tile{display:grid;grid-template-columns:auto minmax(0,1fr);gap:.2rem 1rem;align-items:center;text-decoration:none;color:inherit;background:linear-gradient(180deg,var(--hi),transparent 45%,var(--lo)),var(--tile);border:1px solid var(--rule);border-bottom:3px solid color-mix(in srgb,var(--ic) 45%,var(--rule));border-radius:10px;padding:1rem 1.1rem;min-height:6.6rem;position:relative;box-shadow:inset 0 1px 0 var(--hi),0 2px 0 var(--drop),0 4px 10px var(--drop);transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease}
+a.tile:hover{transform:translateY(-2px);box-shadow:inset 0 1px 0 var(--hi),0 4px 0 var(--drop),0 10px 22px var(--drop);border-color:var(--ic)}
+a.tile:active{transform:translateY(2px);box-shadow:inset 0 2px 5px var(--lo),0 1px 0 var(--drop);border-bottom-width:1px;padding-bottom:calc(1rem + 2px)}
+a.tile:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+@media (prefers-reduced-motion: reduce){ a.tile{transition:none} a.tile:hover{transform:none} }
+a.tile svg{grid-row:1/3;width:64px;height:44px;color:var(--ic);flex-shrink:0}
+a.tile b{font-weight:600;font-size:1.02rem;line-height:1.25;align-self:end}
+a.tile span{color:var(--muted);font-size:.86rem;line-height:1.35;align-self:start}
+a.tile .num{position:absolute;top:.55rem;right:.75rem;font:500 .78rem/1 "IBM Plex Sans",Arial,sans-serif;color:var(--ic);opacity:.8}
+a.tile .new{position:absolute;top:.5rem;right:.7rem;font:600 .7rem/1 "IBM Plex Sans",Arial,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:var(--surface);background:var(--ic);border-radius:4px;padding:.25rem .4rem}
+a.tile[aria-disabled="true"]{cursor:default;opacity:.65}
+a.tile[aria-disabled="true"]:hover{transform:none;box-shadow:none;border-color:var(--rule)}
+.about{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:1rem 2.5rem;margin-top:2.6rem;padding-top:1.6rem;border-top:1px solid var(--rule)}
+.about h3{font:500 1.15rem/1.3 "IBM Plex Serif",Georgia,serif;margin:0 0 .5rem}
+.about p{margin:0 0 .8rem;color:var(--ink);max-width:62ch}
+.about .muted{color:var(--muted);font-size:.92rem}
+.about a{color:var(--accent)}
+.about ul{margin:.2rem 0 0;padding-left:1.1rem;color:var(--muted);font-size:.92rem}
+.about li{margin:.25rem 0}
+blockquote{margin:0 0 .8rem;padding:.2rem 0 .2rem 1rem;border-left:3px solid var(--rule);font:italic 400 1.02rem/1.5 "IBM Plex Serif",Georgia,serif;color:var(--ink)}
+footer{margin-top:2.4rem;color:var(--muted);font-size:.85rem}
+@media (max-width:60rem){ .grid{grid-template-columns:repeat(2,minmax(0,1fr))} .about{grid-template-columns:1fr} }
+@media (max-width:38rem){ .grid{grid-template-columns:1fr} header{grid-template-columns:1fr} .badge{text-align:left} }
+/* barra superiore: ritorno al menu e scelta dello sfondo */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:.6rem 1rem;flex-wrap:wrap;margin:0 0 1.1rem}
+a.home{display:inline-flex;align-items:center;gap:.5rem;font:600 1.02rem/1.2 "IBM Plex Sans","Helvetica Neue",Arial,sans-serif;color:var(--accent-ink,var(--surface,#fff));background:var(--accent,var(--title,#3C5A99));border:1px solid var(--accent,var(--title,#3C5A99));border-radius:8px;padding:.6rem 1.1rem;text-decoration:none;box-shadow:0 2px 0 rgba(0,0,0,.18)}
+a.home:hover{filter:brightness(1.08)}
+a.home:active{transform:translateY(1px);box-shadow:none}
+a.home:focus-visible,.themesel button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.themesel{display:inline-flex;align-items:center;gap:.25rem;font-size:.85rem;color:var(--muted)}
+.themesel > span{margin-right:.35rem}
+.themesel button{font:inherit;font-size:.85rem;padding:.32rem .65rem;border:1px solid var(--rule);background:transparent;color:var(--ink);border-radius:6px;cursor:pointer}
+.themesel button[aria-pressed="true"]{background:var(--sel,rgba(60,90,153,.14));border-color:var(--accent,var(--title,#3C5A99));font-weight:600}
+/* cornice dell’applicazione, solo sugli schermi grandi: con lo sfondo scuro l’esterno è quasi nero e il bordo più chiaro */
+:root{--outer:color-mix(in srgb,var(--bg) 86%,var(--ink));--frame:var(--rule);--frame-sh:0 12px 40px rgba(0,0,0,.14);
+  --b-hi:rgba(255,255,255,.75);--b-lo:rgba(0,0,0,.07);--b-sh:rgba(20,30,50,.20);--field:#E1ECFB;--field-bd:#7A9CD2;--field-focus:#F2F7FE;--arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%232F4F8A' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");--btn2:#D9E6F8;--btn2-ink:#1B2945;--btn2-bd:#A6BDE2}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--outer:#090B0E;--frame:#3E4654;--frame-sh:0 0 0 1px rgba(255,255,255,.03),0 18px 50px rgba(0,0,0,.7);
+  --b-hi:rgba(255,255,255,.10);--b-lo:rgba(0,0,0,.35);--b-sh:rgba(0,0,0,.6);--field:#22324B;--field-bd:#5C7DB4;--field-focus:#2A3D5C;--arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23A9C4F0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");--btn2:#2A3B58;--btn2-ink:#E7EDF7;--btn2-bd:#4A5F86}}
+:root[data-theme="dark"]{--outer:#090B0E;--frame:#3E4654;--frame-sh:0 0 0 1px rgba(255,255,255,.03),0 18px 50px rgba(0,0,0,.7);
+  --b-hi:rgba(255,255,255,.10);--b-lo:rgba(0,0,0,.35);--b-sh:rgba(0,0,0,.6);--field:#22324B;--field-bd:#5C7DB4;--field-focus:#2A3D5C;--arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23A9C4F0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");--btn2:#2A3B58;--btn2-ink:#E7EDF7;--btn2-bd:#4A5F86}
+@media (min-width:60rem){
+  body{background:var(--outer)}
+  .wrap{width:calc(100% - 2.5rem);background:var(--bg);border:1px solid var(--frame);border-radius:16px;box-shadow:var(--frame-sh);margin:1.25rem auto 1.5rem;padding-left:1.75rem;padding-right:1.75rem}
+}
+/* tutto ciò che si può premere ha l’aspetto di un pulsante; pannelli e tabelle restano piatti */
+button:not(.sw){background-image:linear-gradient(180deg,var(--b-hi),transparent 55%,var(--b-lo));border-bottom-width:2px;border-bottom-color:color-mix(in srgb,var(--ink) 28%,var(--rule));box-shadow:inset 0 1px 0 var(--b-hi),0 1px 3px var(--b-sh);transition:transform .08s ease,box-shadow .08s ease}
+button:not(.sw):hover:not(:disabled){transform:translateY(-1px);box-shadow:inset 0 1px 0 var(--b-hi),0 3px 7px var(--b-sh)}
+button:not(.sw):active:not(:disabled){transform:translateY(1px);box-shadow:inset 0 2px 4px var(--b-lo)}
+button:disabled{background-image:none;box-shadow:none;transform:none}
+@media (prefers-reduced-motion: reduce){button:not(.sw){transition:none}button:not(.sw):hover:not(:disabled),button:not(.sw):active:not(:disabled){transform:none}}
+/* i campi in cui si scrive o si sceglie un valore hanno uno sfondo grigio, come caselle */
+/* campi da compilare: azzurri con bordo blu, disegnati senza lo stile di sistema del browser */
+input[type=number],select,textarea{-webkit-appearance:none;appearance:none;background-color:var(--field);border:1.5px solid var(--field-bd);border-radius:6px;box-shadow:inset 0 1px 3px var(--b-lo);color:var(--ink)}
+input[type=number]{-moz-appearance:textfield}
+select{background-image:var(--arrow);background-repeat:no-repeat;background-position:right .6rem center;background-size:12px 8px;padding-right:2rem}
+input[type=number]:focus,select:focus,textarea:focus{background-color:var(--field-focus);border-color:var(--accent,#3C5A99)}
+/* pulsanti secondari colorati (azzurro chiaro, o blu scuro con lo sfondo scuro); quelli principali restano nel colore d’accento */
+button:not(.sw):not(.primary):not(:disabled){background-color:var(--btn2);color:var(--btn2-ink);border-color:var(--btn2-bd);border-bottom-color:color-mix(in srgb,var(--btn2-bd) 65%,var(--ink))}
+button[aria-pressed="true"]:not(.sw):not(.primary),button[aria-selected="true"]:not(.sw):not(.primary){background-color:var(--accent,#3C5A99);color:var(--accent-ink,var(--surface,#fff));border-color:var(--accent,#3C5A99)}
+/* pulsante per salvare l’immagine e messaggio temporaneo */
+.topbar .savebtn{margin-left:auto}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 1.2rem);transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:.6rem 1rem;border-radius:8px;font-size:.9rem;max-width:min(90vw,34rem);z-index:50;box-shadow:0 6px 20px rgba(0,0,0,.3)}
+/* OK ripetuto in cima al quadro delle scelte */
+.gotop{display:flex;align-items:center;gap:.5rem 1rem;flex-wrap:wrap;margin:0 0 1rem}
+.gotop button{padding:.7rem 1.5rem;font-size:1.02rem}
+.langlink{display:inline-flex;align-items:center;font:600 .9rem/1.2 "IBM Plex Sans",Arial,sans-serif;color:var(--accent,var(--title,#3C5A99));text-decoration:none;border:1.5px solid var(--accent,var(--title,#3C5A99));border-radius:6px;padding:.32rem .7rem}
+.langlink:hover{background:var(--sel,rgba(60,90,153,.12))}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="topbar" style="justify-content:flex-end"><a class="langlink" id="langlink" href="../index.html" hreflang="it" lang="it">Italiano</a><div class="themesel" role="group" aria-label="Page background"><span>Background</span><button type="button" data-t="auto">automatic</button><button type="button" data-t="light">light</button><button type="button" data-t="dark">dark</button></div></div>
+<header>
+  <div>
+    <h1>Simulations in <em>Statistics</em></h1>
+    <p class="by">Simul2000 · an interactive teaching program by Marcello Chiodi</p>
+    <p class="lede">Histograms, point clouds and fitted lines grow before your eyes as the simulations run: an intuitive way into sampling distributions, the central limit theorem and inference in regression.</p>
+  </div>
+  <div class="badge"><b>1995 – 2003</b>original version in Visual Basic<br><b style="margin-top:.5rem">2026</b>rewritten for the web</div>
+</header>
+
+<h2>Choose a module</h2>
+<nav class="grid" id="grid" aria-label="Modules"></nav>
+
+<h2>New module</h2>
+<nav class="grid" id="extra" aria-label="New module"></nav>
+
+<h2>A memento of the original version</h2>
+<nav class="grid" id="memo" aria-label="A memento of the original version"></nav>
+
+<section class="about">
+  <div>
+    <h3>The program</h3>
+    <blockquote>“A sort of statistics video game”, as a colleague put it on seeing it.</blockquote>
+    <p>Simul2000 was born in the mid-1990s, refined in 2000 and last modified in 2003. It is not meant to replace statistical software for research: it favours graphics, to show the individual simulated samples and their estimates dynamically, compared with the true values of the parameters.</p>
+    <p>This version rebuilds the modules of the original for the browser, with the same teaching ideas, a few extensions and a module planned at the time but never finished: the comparison between the mean and the maximum likelihood estimator.</p>
+  </div>
+  <div>
+    <h3>How to use it</h3>
+    <ul>
+      <li>Each module opens on a settings screen: distribution or model, size of the simulation, seed of the generator.</li>
+      <li>Then the simulation is started and its speed adjusted, or it is completed in one go.</li>
+      <li>Each page works on its own, even offline, and adapts to computers, tablets and phones.</li>
+      <li>Every module offers colours suited to people who find it hard to tell red from green.</li>
+    </ul>
+    <p class="muted" style="margin-top:1rem">Marcello Chiodi · <a href="mailto:marcello.chiodi@unipa.it">marcello.chiodi@unipa.it</a> · <a href="http://www.marcellochiodi.com" rel="noopener">marcellochiodi.com</a></p>
+  </div>
+</section>
+
+<footer>Simul2000 · Simulations in Statistics. Pseudo-random numbers are generated in the browser with a multiplicative congruential generator; no data is sent anywhere.</footer>
+</div>
+
+<script>
+(() => {
+'use strict';
+// i collegamenti puntano ai file accanto a questa pagina; nell’anteprima su claude.ai puntano alle pagine pubblicate
+const onClaude = /claude/i.test(location.hostname);
+const A = id => `https://claude.ai/artifact/${id}`;
+const svg = inner => `<svg viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+const ICON = {
+  univ: svg('<path d="M6 40h52" opacity=".5"/><rect x="12" y="28" width="6" height="12" fill="currentColor" stroke="none" opacity=".35"/><rect x="19" y="16" width="6" height="24" fill="currentColor" stroke="none" opacity=".35"/><rect x="26" y="9" width="6" height="31" fill="currentColor" stroke="none" opacity=".35"/><rect x="33" y="12" width="6" height="28" fill="currentColor" stroke="none" opacity=".35"/><rect x="40" y="24" width="6" height="16" fill="currentColor" stroke="none" opacity=".35"/><path d="M8 39c6-1 9-13 14-24s8-9 12-4 8 22 22 28"/>'),
+  medie: svg('<path d="M6 40h52" opacity=".5"/><circle cx="12" cy="6" r="2" fill="currentColor"/><circle cx="20" cy="6" r="2" fill="currentColor"/><circle cx="40" cy="6" r="2" fill="currentColor"/><circle cx="52" cy="6" r="2" fill="currentColor"/><circle cx="31" cy="6" r="3.5" fill="currentColor" stroke="none"/><path d="M14 39c6-1 10-24 17-26s11 25 19 26"/>'),
+  mc: svg('<rect x="8" y="4" width="48" height="36" opacity=".5"/><path d="M8 4c10 16 26 30 48 36"/><g fill="currentColor" stroke="none"><circle cx="16" cy="30" r="1.6"/><circle cx="26" cy="34" r="1.6"/><circle cx="40" cy="36" r="1.6"/><circle cx="34" cy="28" r="1.6"/><circle cx="22" cy="24" r="1.6" opacity=".45"/><circle cx="40" cy="12" r="1.6" opacity=".45"/><circle cx="50" cy="20" r="1.6" opacity=".45"/><circle cx="30" cy="10" r="1.6" opacity=".45"/></g>'),
+  inv: svg('<path d="M6 40h52M6 4v36" opacity=".5"/><path d="M8 38c14 0 16-34 46-34"/><path d="M6 25h21v15" stroke-dasharray="3 3"/>'),
+  reg: svg('<path d="M6 40h52" opacity=".5"/><path d="M8 34 56 8" stroke-width="2.6"/><path d="M8 30 56 12M8 38 56 6M8 28 56 16" opacity=".4"/><g fill="currentColor" stroke="none"><circle cx="14" cy="34" r="2"/><circle cx="26" cy="24" r="2"/><circle cx="38" cy="22" r="2"/><circle cx="50" cy="10" r="2"/></g>'),
+  glm: svg('<path d="M6 40h52" opacity=".5"/><path d="M8 37c18 0 18-31 48-31"/><g fill="currentColor" stroke="none"><circle cx="12" cy="38" r="2"/><circle cx="22" cy="38" r="2"/><circle cx="30" cy="5" r="2"/><circle cx="34" cy="38" r="2"/><circle cx="44" cy="5" r="2"/><circle cx="54" cy="5" r="2"/></g>'),
+  arma: svg('<path d="M6 22h52" opacity=".4"/><path d="M6 24l4-8 4 14 4-6 4 10 4-18 4 8 4-4 4 12 4-16 4 6 4 4 4-10"/>'),
+  biv: svg('<ellipse cx="32" cy="22" rx="24" ry="11" transform="rotate(-24 32 22)"/><ellipse cx="32" cy="22" rx="12" ry="5" transform="rotate(-24 32 22)" opacity=".5"/><g fill="currentColor" stroke="none"><circle cx="22" cy="28" r="1.6"/><circle cx="28" cy="25" r="1.6"/><circle cx="36" cy="19" r="1.6"/><circle cx="42" cy="16" r="1.6"/><circle cx="31" cy="21" r="1.6"/><circle cx="18" cy="31" r="1.6"/><circle cx="46" cy="14" r="1.6"/></g>'),
+  drag: svg('<path d="M6 40h52" opacity=".5"/><path d="M6 34 58 12" stroke-width="2.6"/><path d="M6 28c18-4 34-14 52-22M6 40c18-6 34-14 52-22" opacity=".45"/><g fill="currentColor" stroke="none"><rect x="12" y="27" width="5" height="5"/><rect x="27" y="22" width="5" height="5"/><rect x="44" y="14" width="5" height="5"/></g><path d="M47 30l4 9 2-4 4 2z" fill="currentColor" stroke="none"/>'),
+  mv: svg('<path d="M6 20h52M6 41h52" opacity=".5"/><path d="M10 20c8-1 12-14 22-14s14 13 22 14"/><path d="M18 41c6-1 8-22 14-22s8 21 14 22"/>'),
+  book: svg('<path d="M32 9c-6-4-16-4-22-2v30c6-2 16-2 22 2 6-4 16-4 22-2V7c-6-2-16-2-22 2z"/><path d="M32 9v30" opacity=".6"/><path d="M16 15h10M16 21h10M38 15h10M38 21h10" opacity=".5"/>'),
+  help: svg('<circle cx="32" cy="22" r="18"/><path d="M26 17c0-4 3-6 6-6s6 2 6 6c0 5-6 5-6 10" /><circle cx="32" cy="33" r="1.5" fill="currentColor" stroke="none"/>')
+};
+const MODULES = [
+  ['simul_univariata.html', 'BmU637hbfQuQVFs6Ry96FB', 'Random number generation', 'Ten univariate distributions: the histogram takes shape before your eyes, next to the theoretical density.', 'univ'],
+  ['simul_medie.html', 'ETD1sHcKGJJJswFLwnGBFN', 'Sampling distributions of means', 'Means of samples from distributions, even very skewed ones: the central limit theorem at work.', 'medie'],
+  ['simul_montecarlo.html', 'MuPZ2WeuwP5fHtvwbwWmm6', 'Monte Carlo integration', 'Random points in the unit square: hit or miss, and the comparison with the sample-mean method.', 'mc'],
+  ['simul_inversione.html', '6u8LZbmjfqEQhPZxZJfGPT', 'Generation methods', 'Inversion of the distribution function, for the normal and for a discrete distribution.', 'inv'],
+  ['simul_regressione.html', '5XsTSyuyVXT8Cyf7Jp8wz8', 'Simulation of regression relationships', 'Four windows: fitted lines, pairs of estimates, single sample and text.', 'reg'],
+  ['simul_glm.html', '8wQGSqNgxWqHVKRCaeVN68', 'Simulation of GLMs', 'Logistic, Poisson and gamma regression, with maximum likelihood estimates.', 'glm'],
+  ['simul_arma.html', 'GaAdsXsr9CDdLcSETLi3YX', 'Simulation of ARMA models', 'Time series from ARMA and ARIMA models, with ordinary and partial autocorrelations.', 'arma'],
+  ['simul_bivariate.html', 'GNSgnxrGsg2Px6AHuarKh3', 'Simulation of bivariate distributions', 'Point clouds with ellipses, regression lines, marginals and a three-dimensional histogram.', 'biv'],
+  ['simul_regressione_interattiva.html', '45k8TqXv7dfncw67bqpHEp', 'Interactive linear regression', 'Points are added and dragged: the line and the confidence bands follow them.', 'drag']
+];
+const EXTRA = [
+  ['simul_massima_verosimiglianza.html', 'EjrEU9wHH1Xtau76yPDFzf', 'Mean and maximum likelihood', 'The module left unfinished in 2003: two estimators of location compared.', 'mv', 'new']
+];
+const MEMO = [
+  ['../helpsimul2003.pdf', null, 'The 2003 manual (in Italian)', 'The original guide, with screenshots of every module and the teaching ideas behind them.', 'book'],
+  ['simul2000_guida.html', 'C8i95QsW3D5SXxXMwKmGok', 'The original online help', 'The texts of the Simul2000 WinHelp file, recovered and converted for the browser.', 'help']
+];
+function tiles(list, box, start, offset) {
+  box.innerHTML = list.map(([file, id, title, desc, icon, flag], i) => {
+    const n = start + i, href = onClaude ? (id ? A(id) : null) : file, ext = onClaude && id;
+    const attrs = href ? `href="${href}"${ext ? ' target="_blank" rel="noopener"' : ''}` : `aria-disabled="true" title="Available in the program folder"`;
+    const mark = flag ? `<i class="new">${flag}</i>` : (offset ? '' : `<i class="num">${n}</i>`);
+    return `<a class="tile" ${attrs} style="--tile:var(--t${n});--ic:var(--i${n})">${ICON[icon]}<b>${title}</b><span>${desc}${!href ? ' (in the program folder)' : ''}</span>${mark}</a>`;
+  }).join('');
+}
+tiles(MODULES, document.getElementById('grid'), 1, false);
+tiles(EXTRA, document.getElementById('extra'), 10, true);
+tiles(MEMO, document.getElementById('memo'), 11, true);
+})();
+</script>
+<script>(()=>{const s=document.querySelector('.themesel'); if(!s||!window.simulTheme) return; const mark=()=>s.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.t===simulTheme.get()))); s.addEventListener('click',e=>{const b=e.target.closest('button'); if(b){simulTheme.set(b.dataset.t); mark();}}); mark();})();</script>
+<script>(()=>{ // nell’anteprima su claude.ai ogni pagina è pubblicata a parte: i collegamenti puntano alle pagine pubblicate
+  if (!/claude/i.test(location.hostname)) return; const A = id => 'https://claude.ai/artifact/' + id;
+  const h = document.getElementById('homelink'), l = document.getElementById('langlink');
+  if (h) { h.href = A('7LfJGBvPKHLBxjGFFReBT6'); h.target = '_blank'; h.rel = 'noopener'; }
+  if (l) { l.href = A('BCLMYMGyTLT6g9K4GZN3cT'); l.target = '_blank'; l.rel = 'noopener'; }
+})();</script>
+</body>
+</html>
