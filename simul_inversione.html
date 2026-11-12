@@ -628,5 +628,15 @@ window.__simul = { generate, setMode, pnorm, qnorm, get all() { return all; }, g
   if (h) { h.href = A('BCLMYMGyTLT6g9K4GZN3cT'); h.target = '_blank'; h.rel = 'noopener'; }
   if (l) { l.href = A('6u8LZbmjfqEQhPZxZJfGPT'); l.target = '_blank'; l.rel = 'noopener'; }
 })();</script>
+<script>
+// il tasto Invio equivale al pulsante «Genera»
+(() => { const g = document.getElementById('gen'); if (!g) return;
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.defaultPrevented || e.isComposing || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
+    const t = e.target; if (t && ['BUTTON', 'A', 'SELECT', 'TEXTAREA', 'INPUT', 'SUMMARY'].includes(t.tagName)) return;
+    e.preventDefault(); g.click();
+  });
+})();
+</script>
 </body>
 </html>

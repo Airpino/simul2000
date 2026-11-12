@@ -848,5 +848,16 @@ window.__simul = { DISTS, configure, reset, batch, selectDist, get st() { return
   });
 })();
 </script>
+<script>
+// durante la simulazione il tasto Invio equivale al pulsante «Avvia» (o «Pausa», se la simulazione è in corso)
+(() => { const run = document.getElementById('run'), go = document.getElementById('go'); if (!run || !go) return;
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.defaultPrevented || e.isComposing || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey || run.hidden || go.disabled) return;
+    const ov = document.getElementById('ov'); if (ov && !ov.hidden) return;
+    const t = e.target; if (t && ['BUTTON', 'A', 'SELECT', 'TEXTAREA', 'SUMMARY'].includes(t.tagName)) return;
+    e.preventDefault(); go.click();
+  });
+})();
+</script>
 </body>
 </html>

@@ -17,7 +17,7 @@ Ogni pagina è un unico file HTML autonomo: non serve installare nulla.
 4. In alto in ogni pagina si sceglie lo sfondo: automatico (come il sistema), chiaro o scuro. La scelta vale per tutte le pagine e resta memorizzata.
 5. Nei moduli, il pulsante «Salva immagine» crea un file PNG con i grafici visibili, il titolo e i parametri della simulazione, le tabelle dei risultati e la data.
 6. Il pulsante «English» in alto apre la stessa pagina in inglese; nella versione inglese, «Italiano» riporta a quella italiana.
-7. Il pulsante «? Guida» apre la guida del modulo; dalla pagina iniziale apre la guida generale. Nel quadro delle scelte, il tasto Invio fa partire la simulazione.
+7. Il pulsante «? Guida» apre la guida del modulo; dalla pagina iniziale apre la guida generale. Il tasto Invio fa partire la simulazione dal quadro delle scelte, e poi equivale ad «Avvia» / «Pausa».
 
 Funziona anche senza connessione a internet: in quel caso il browser usa i suoi caratteri di sistema al posto di quelli previsti.
 
