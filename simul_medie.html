@@ -159,11 +159,15 @@ button[aria-pressed="true"]:not(.sw):not(.primary),button[aria-selected="true"]:
 .gotop button{padding:.7rem 1.5rem;font-size:1.02rem}
 .langlink{display:inline-flex;align-items:center;font:600 .9rem/1.2 "IBM Plex Sans",Arial,sans-serif;color:var(--accent,var(--title,#3C5A99));text-decoration:none;border:1.5px solid var(--accent,var(--title,#3C5A99));border-radius:6px;padding:.32rem .7rem}
 .langlink:hover{background:var(--sel,rgba(60,90,153,.12))}
+.helpbtn{display:inline-flex;align-items:center;gap:.3rem;font:600 .9rem/1.2 "IBM Plex Sans",Arial,sans-serif;color:var(--accent,#3C5A99);text-decoration:none;border:1.5px solid var(--accent,#3C5A99);border-radius:6px;padding:.32rem .7rem}
+.helpbtn:hover{background:var(--sel,rgba(60,90,153,.12))}
+.topbar .helpbtn{margin-left:auto}
+.topbar .helpbtn + .savebtn{margin-left:0}
 </style>
 </head>
 <body>
 <div class="wrap">
-<div class="topbar"><a class="home" id="homelink" href="index.html">← Menu iniziale</a><a class="langlink" id="langlink" href="en/simul_medie.html" hreflang="en" lang="en">English</a><button type="button" class="savebtn" id="saveimg" title="Salva un’immagine PNG con i grafici, i parametri e i risultati della simulazione">Salva immagine</button><div class="themesel" role="group" aria-label="Sfondo della pagina"><span>Sfondo</span><button type="button" data-t="auto">automatico</button><button type="button" data-t="light">chiaro</button><button type="button" data-t="dark">scuro</button></div></div>
+<div class="topbar"><a class="home" id="homelink" href="index.html">← Menu iniziale</a><a class="langlink" id="langlink" href="en/simul_medie.html" hreflang="en" lang="en">English</a><a class="helpbtn" id="helplink" href="aiuto_medie.html">? Guida</a><button type="button" class="savebtn" id="saveimg" title="Salva un’immagine PNG con i grafici, i parametri e i risultati della simulazione">Salva immagine</button><div class="themesel" role="group" aria-label="Sfondo della pagina"><span>Sfondo</span><button type="button" data-t="auto">automatico</button><button type="button" data-t="light">chiaro</button><button type="button" data-t="dark">scuro</button></div></div>
 <header>
   <h1 id="title">Distribuzioni campionarie di medie</h1>
   <p id="subtitle">Si estraggono m campioni di n elementi dalla distribuzione scelta e si osserva come si distribuiscono le loro medie aritmetiche.</p>
@@ -278,8 +282,8 @@ button[aria-pressed="true"]:not(.sw):not(.primary),button[aria-selected="true"]:
       <canvas id="small" role="img" aria-label="Istogramma di tutti i valori singoli generati, con la loro distribuzione teorica"></canvas>
     </section>
 
-    <section class="panel" aria-label="Costanti statistiche delle medie">
-      <h2>Costanti statistiche delle medie</h2>
+    <section class="panel" aria-label="Statistiche della distribuzione delle medie">
+      <h2>Statistiche della distribuzione delle medie</h2>
       <table>
         <thead><tr><th>&nbsp;</th><th>simulato</th><th>teorico</th></tr></thead>
         <tbody>
@@ -364,7 +368,7 @@ const DISTS = [
     mom: ({ p }) => { const v = Math.pow(p, 2 / p) * G(3 / p) / G(1 / p); return [0, v, 0, G(5 / p) * G(1 / p) / G(3 / p) ** 2]; },
     range: ({ p }) => { const s = Math.sqrt(Math.pow(p, 2 / p) * G(3 / p) / G(1 / p)); const m = niceUp(Math.max(3, 4.5 * s)); return [-m, m, nice(2 * m / 80)]; } },
   { id: 'cauchy', name: 'Cauchy standard', params: [],
-    note: 'La Cauchy non ha media né varianza: le costanti simulate non si stabilizzano al crescere di n, e molti valori cadono fuori dall’intervallo dell’istogramma.',
+    note: 'La Cauchy non ha media né varianza: le statistiche campionarie non si stabilizzano al crescere di n, e molti valori cadono fuori dall’intervallo dell’istogramma.',
     r: () => Math.tan(Math.PI * (upos() - 0.5)), d: x => 1 / (Math.PI * (1 + x * x)),
     mom: () => [NaN, NaN, NaN, NaN], range: () => [-10, 10, 0.25] },
   { id: 'exp', name: 'Esponenziale standard', params: [],
@@ -831,5 +835,18 @@ window.__simul = { DISTS, configure, reset, batch, selectDist, get st() { return
   if (h) { h.href = A('BCLMYMGyTLT6g9K4GZN3cT'); h.target = '_blank'; h.rel = 'noopener'; }
   if (l) { l.href = A('ETD1sHcKGJJJswFLwnGBFN'); l.target = '_blank'; l.rel = 'noopener'; }
 })();</script>
+<script>
+// nel quadro delle scelte il tasto Invio fa partire la simulazione, come «OK, alla simulazione»
+(() => { const s = document.getElementById('setup'), ok = document.getElementById('ok'); if (!s || !ok) return;
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.isComposing || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey || s.hidden) return;
+    const t = e.target; if (t && (t.tagName === 'BUTTON' || t.tagName === 'A' || t.tagName === 'SUMMARY')) return;
+    if (t && t !== document.body && !s.contains(t)) return;
+    e.preventDefault();
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) t.dispatchEvent(new Event('change', { bubbles: true }));
+    ok.click();
+  });
+})();
+</script>
 </body>
 </html>

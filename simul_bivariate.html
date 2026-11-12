@@ -162,11 +162,15 @@ button[aria-pressed="true"]:not(.sw):not(.primary),button[aria-selected="true"]:
 .gotop button{padding:.7rem 1.5rem;font-size:1.02rem}
 .langlink{display:inline-flex;align-items:center;font:600 .9rem/1.2 "IBM Plex Sans",Arial,sans-serif;color:var(--accent,var(--title,#3C5A99));text-decoration:none;border:1.5px solid var(--accent,var(--title,#3C5A99));border-radius:6px;padding:.32rem .7rem}
 .langlink:hover{background:var(--sel,rgba(60,90,153,.12))}
+.helpbtn{display:inline-flex;align-items:center;gap:.3rem;font:600 .9rem/1.2 "IBM Plex Sans",Arial,sans-serif;color:var(--accent,#3C5A99);text-decoration:none;border:1.5px solid var(--accent,#3C5A99);border-radius:6px;padding:.32rem .7rem}
+.helpbtn:hover{background:var(--sel,rgba(60,90,153,.12))}
+.topbar .helpbtn{margin-left:auto}
+.topbar .helpbtn + .savebtn{margin-left:0}
 </style>
 </head>
 <body>
 <div class="wrap">
-<div class="topbar"><a class="home" id="homelink" href="index.html">← Menu iniziale</a><a class="langlink" id="langlink" href="en/simul_bivariate.html" hreflang="en" lang="en">English</a><button type="button" class="savebtn" id="saveimg" title="Salva un’immagine PNG con i grafici, i parametri e i risultati della simulazione">Salva immagine</button><div class="themesel" role="group" aria-label="Sfondo della pagina"><span>Sfondo</span><button type="button" data-t="auto">automatico</button><button type="button" data-t="light">chiaro</button><button type="button" data-t="dark">scuro</button></div></div>
+<div class="topbar"><a class="home" id="homelink" href="index.html">← Menu iniziale</a><a class="langlink" id="langlink" href="en/simul_bivariate.html" hreflang="en" lang="en">English</a><a class="helpbtn" id="helplink" href="aiuto_bivariate.html">? Guida</a><button type="button" class="savebtn" id="saveimg" title="Salva un’immagine PNG con i grafici, i parametri e i risultati della simulazione">Salva immagine</button><div class="themesel" role="group" aria-label="Sfondo della pagina"><span>Sfondo</span><button type="button" data-t="auto">automatico</button><button type="button" data-t="light">chiaro</button><button type="button" data-t="dark">scuro</button></div></div>
 <header>
   <h1 id="title">Simulazioni di distribuzioni bivariate</h1>
   <p id="subtitle">Si generano coppie (x, y) di numeri pseudo-casuali da una distribuzione bivariata e si osserva come si forma la nuvola dei punti.</p>
@@ -265,8 +269,8 @@ button[aria-pressed="true"]:not(.sw):not(.primary),button[aria-selected="true"]:
       </div>
     </section>
 
-    <section class="panel" aria-label="Costanti statistiche">
-      <h2>Costanti statistiche</h2>
+    <section class="panel" aria-label="Statistiche campionarie">
+      <h2>Statistiche campionarie</h2>
       <table>
         <thead><tr><th>&nbsp;</th><th>simulato</th><th>teorico</th></tr></thead>
         <tbody id="stats"></tbody>
@@ -368,7 +372,7 @@ const DISTS = [
     mom: ({ p }) => { const v = Math.pow(p, 2 / p) * G(3 / p) / G(1 / p); return [0, v, 0, G(5 / p) * G(1 / p) / G(3 / p) ** 2]; },
     range: ({ p }) => { const s = Math.sqrt(Math.pow(p, 2 / p) * G(3 / p) / G(1 / p)); const m = niceUp(Math.max(3, 4.5 * s)); return [-m, m, nice(2 * m / 80)]; } },
   { id: 'cauchy', name: 'Cauchy standard', params: [],
-    note: 'La Cauchy non ha media né varianza: le costanti simulate non si stabilizzano al crescere di n, e molti valori cadono fuori dall’intervallo dell’istogramma.',
+    note: 'La Cauchy non ha media né varianza: le statistiche campionarie non si stabilizzano al crescere di n, e molti valori cadono fuori dall’intervallo dell’istogramma.',
     r: () => Math.tan(Math.PI * (upos() - 0.5)), d: x => 1 / (Math.PI * (1 + x * x)),
     mom: () => [NaN, NaN, NaN, NaN], range: () => [-10, 10, 0.25] },
   { id: 'exp', name: 'Esponenziale standard', params: [],
@@ -433,12 +437,12 @@ const BIV = [
     r: () => [rnorm(), rnorm()], mom: () => [0, 0, 1, 1, 0], range: () => [-4, 4, -4, 4], mx: phi, my: phi, rho: () => 0,
     pdf: (x, y) => phi(x) * phi(y) },
   { id: 'normc', name: 'Normale bivariata a componenti correlate', normal: true,
-    params: [{ k: 'rho', sym: 'ρ', label: 'ρ, correlazione fra X e Y', v: 0.9, min: -0.999, max: 0.999 }],
+    params: [{ k: 'rho', sym: 'ρ', label: 'ρ, correlazione fra X e Y', v: 0.7, min: -0.999, max: 0.999 }],
     r: ({ rho }) => { const z1 = rnorm(), z2 = rnorm(); return [z1, rho * z1 + Math.sqrt(1 - rho * rho) * z2]; },
     mom: ({ rho }) => [0, 0, 1, 1, rho], range: () => [-4, 4, -4, 4], mx: phi, my: phi, rho: ({ rho }) => rho,
     pdf: (x, y, { rho }) => { const q = 1 - rho * rho; return Math.exp(-(x * x - 2 * rho * x * y + y * y) / (2 * q)) / (2 * Math.PI * Math.sqrt(q)); } },
   { id: 'dir', name: 'Dirichlet (beta bivariata)',
-    params: [{ k: 'a1', sym: 'α₁', label: 'α₁', v: 1, min: 0.05, max: 100 }, { k: 'a2', sym: 'α₂', label: 'α₂', v: 1, min: 0.05, max: 100 }, { k: 'a3', sym: 'α₃', label: 'α₃', v: 1, min: 0.05, max: 100 }],
+    params: [{ k: 'a1', sym: 'α₁', label: 'α₁', v: 1.5, min: 0.05, max: 100 }, { k: 'a2', sym: 'α₂', label: 'α₂', v: 1, min: 0.05, max: 100 }, { k: 'a3', sym: 'α₃', label: 'α₃', v: 0.5, min: 0.05, max: 100 }],
     note: 'X = G₁/S, Y = G₂/S con G₁, G₂, G₃ gamma indipendenti di forme α₁, α₂, α₃ e S = G₁ + G₂ + G₃. Con α₁ = α₂ = α₃ = 1 è uniforme sul triangolo x + y ≤ 1. Le marginali sono beta: X ~ Beta(α₁, α₂ + α₃), Y ~ Beta(α₂, α₁ + α₃).',
     r: ({ a1, a2, a3 }) => { const g1 = rgamma1(a1), g2 = rgamma1(a2), g3 = rgamma1(a3), s = g1 + g2 + g3; return [g1 / s, g2 / s]; },
     mom: ({ a1, a2, a3 }) => { const A = a1 + a2 + a3; return [a1 / A, a2 / A, a1 * (A - a1) / (A * A * (A + 1)), a2 * (A - a2) / (A * A * (A + 1)), -Math.sqrt(a1 * a2 / ((A - a1) * (A - a2)))]; },
@@ -666,6 +670,23 @@ function draw(dt) {
 // proiezione prospettica fatta a mano su canvas: le facce (colonne e reticolo della densità)
 // si ordinano dalla più lontana alla più vicina e si dipingono in quell’ordine
 const V3 = { az: -0.45, el: 0.55, zoom: 1, nb: 20, cells: null, dens: null, zmax: 1 };
+// quadratura doppio-esponenziale (tanh-sinh) su [a, b]: precisa anche con singolarità integrabili agli estremi
+const DEQ = (() => { const N = 14, hs = 0.22, q = []; for (let k = -N; k <= N; k++) { const s = k * hs, u = Math.PI / 2 * Math.sinh(s), c = Math.cosh(u); q.push([Math.tanh(u), hs * Math.PI / 2 * Math.cosh(s) / (c * c)]); } return q; })();
+function deInt(f, a, b) {
+  if (!(b > a)) return 0; const m = (a + b) / 2, r = (b - a) / 2; let s = 0;
+  for (const [th, w] of DEQ) { const x = m + r * th; if (x <= a || x >= b) continue; const y = f(x); if (Number.isFinite(y)) s += w * y; }
+  return s * r;
+}
+// densità media della Dirichlet su una cella di lati hx, hy centrata in (xc, yc): integrale doppio diviso per l’area
+function dirAvg(xc, yc, hx, hy) {
+  const { a1, a2, a3 } = vals, lc = lgamma(a1 + a2 + a3) - lgamma(a1) - lgamma(a2) - lgamma(a3);
+  const f = (x, y) => { const z = 1 - x - y; if (x <= 0 || y <= 0 || z <= 0) return 0; return Math.exp(lc + (a1 - 1) * Math.log(x) + (a2 - 1) * Math.log(y) + (a3 - 1) * Math.log(z)); };
+  const x0 = Math.max(0, xc - hx / 2), x1 = Math.min(1, xc + hx / 2), y0 = Math.max(0, yc - hy / 2), y1 = yc + hy / 2;
+  const inner = x => deInt(y => f(x, y), y0, Math.min(y1, 1 - x));
+  const xb = Math.min(x1, 1 - y0); if (!(xb > x0)) return 0;
+  const xs = 1 - y1, s = xs > x0 && xs < xb ? deInt(inner, x0, xs) + deInt(inner, xs, xb) : deInt(inner, x0, xb);
+  return s / (hx * hy);
+}
 function build3d() {
   const nb = V3.nb = +$('nb3').value, wx = (R[1] - R[0]) / nb, wy = (R[3] - R[2]) / nb, cnt = new Float64Array(nb * nb);
   for (let i = 0; i < k; i++) { const bx = Math.floor((PX[i] - R[0]) / wx), by = Math.floor((PY[i] - R[2]) / wy); if (bx >= 0 && bx < nb && by >= 0 && by < nb) cnt[by * nb + bx]++; }
@@ -675,7 +696,14 @@ function build3d() {
   const ns = Math.min(160, nb * +$('mesh3').value); V3.ns = ns; let tmax = 0;
   V3.dens = new Float64Array((ns + 1) * (ns + 1));
   for (let j = 0; j <= ns; j++) for (let i = 0; i <= ns; i++) {
-    const x = R[0] + (R[1] - R[0]) * i / ns, y = R[2] + (R[3] - R[2]) * j / ns; let v = cur.pdf(x, y, vals); if (!Number.isFinite(v)) v = NaN;
+    const x = R[0] + (R[1] - R[0]) * i / ns, y = R[2] + (R[3] - R[2]) * j / ns;
+    // densità media su una piccola cella attorno al nodo: dove la densità è infinita (bordi della Dirichlet con α < 1)
+    // il valore puntuale dipenderebbe dalla distanza del nodo dalla singolarità e la superficie verrebbe irregolare
+    // la cella ha la stessa ampiezza delle colonne dell’istogramma, così superficie e colonne sono confrontabili;
+    // per la Dirichlet, vicino ai bordi del triangolo, la densità può essere infinita: lì la media si calcola con la quadratura tanh-sinh
+    const hx = (R[1] - R[0]) / nb, hy = (R[3] - R[2]) / nb; let v = 0;
+    if (cur.id === 'dir' && (x - hx < 0 || y - hy < 0 || x + y + hx + hy > 1)) v = dirAvg(x, y, hx, hy);
+    else { const K = 6; for (let a = 0; a < K; a++) for (let b = 0; b < K; b++) { const d = cur.pdf(x + ((a + 0.5) / K - 0.5) * hx, y + ((b + 0.5) / K - 0.5) * hy, vals); v += Number.isFinite(d) ? d : 0; } v /= K * K; }
     V3.dens[j * (ns + 1) + i] = v; if (v > tmax) tmax = v;
   }
   V3.zmax = Math.max(emax, Math.min(tmax, emax * 1.5)) * 1.05 || 1;
@@ -810,7 +838,7 @@ $('speed').addEventListener('input', updateSpeedText);
 ['reg', 'ell'].forEach(id => $(id).addEventListener('change', legend));
 $('marg').addEventListener('change', () => { mScale = null; });
 readColors(); requestAnimationFrame(frame);
-window.__simul = { BIV, configure, reset, batch, selectDist, open3d, V3, get st() { return { k, sx, sy, sxx, syy, sxy, theo, inEll }; } };
+window.__simul = { BIV, configure, reset, batch, selectDist, open3d, V3, dirAvg, get st() { return { k, sx, sy, sxx, syy, sxy, theo, inEll }; } };
 })();
 </script>
 <script>(()=>{const s=document.querySelector('.themesel'); if(!s||!window.simulTheme) return; const mark=()=>s.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.t===simulTheme.get()))); s.addEventListener('click',e=>{const b=e.target.closest('button'); if(b){simulTheme.set(b.dataset.t); mark();}}); mark();})();</script>
@@ -882,5 +910,18 @@ window.__simul = { BIV, configure, reset, batch, selectDist, open3d, V3, get st(
   if (h) { h.href = A('BCLMYMGyTLT6g9K4GZN3cT'); h.target = '_blank'; h.rel = 'noopener'; }
   if (l) { l.href = A('GNSgnxrGsg2Px6AHuarKh3'); l.target = '_blank'; l.rel = 'noopener'; }
 })();</script>
+<script>
+// nel quadro delle scelte il tasto Invio fa partire la simulazione, come «OK, alla simulazione»
+(() => { const s = document.getElementById('setup'), ok = document.getElementById('ok'); if (!s || !ok) return;
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.isComposing || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey || s.hidden) return;
+    const t = e.target; if (t && (t.tagName === 'BUTTON' || t.tagName === 'A' || t.tagName === 'SUMMARY')) return;
+    if (t && t !== document.body && !s.contains(t)) return;
+    e.preventDefault();
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) t.dispatchEvent(new Event('change', { bubbles: true }));
+    ok.click();
+  });
+})();
+</script>
 </body>
 </html>

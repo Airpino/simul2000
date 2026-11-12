@@ -135,11 +135,15 @@ button[aria-pressed="true"]:not(.sw):not(.primary),button[aria-selected="true"]:
 .gotop button{padding:.7rem 1.5rem;font-size:1.02rem}
 .langlink{display:inline-flex;align-items:center;font:600 .9rem/1.2 "IBM Plex Sans",Arial,sans-serif;color:var(--accent,var(--title,#3C5A99));text-decoration:none;border:1.5px solid var(--accent,var(--title,#3C5A99));border-radius:6px;padding:.32rem .7rem}
 .langlink:hover{background:var(--sel,rgba(60,90,153,.12))}
+.helpbtn{display:inline-flex;align-items:center;gap:.3rem;font:600 .9rem/1.2 "IBM Plex Sans",Arial,sans-serif;color:var(--accent,#3C5A99);text-decoration:none;border:1.5px solid var(--accent,#3C5A99);border-radius:6px;padding:.32rem .7rem}
+.helpbtn:hover{background:var(--sel,rgba(60,90,153,.12))}
+.topbar .helpbtn{margin-left:auto}
+.topbar .helpbtn + .savebtn{margin-left:0}
 </style>
 </head>
 <body>
 <div class="wrap">
-<div class="topbar"><a class="home" id="homelink" href="index.html">← Menu iniziale</a><a class="langlink" id="langlink" href="en/simul_inversione.html" hreflang="en" lang="en">English</a><button type="button" class="savebtn" id="saveimg" title="Salva un’immagine PNG con i grafici, i parametri e i risultati della simulazione">Salva immagine</button><div class="themesel" role="group" aria-label="Sfondo della pagina"><span>Sfondo</span><button type="button" data-t="auto">automatico</button><button type="button" data-t="light">chiaro</button><button type="button" data-t="dark">scuro</button></div></div>
+<div class="topbar"><a class="home" id="homelink" href="index.html">← Menu iniziale</a><a class="langlink" id="langlink" href="en/simul_inversione.html" hreflang="en" lang="en">English</a><a class="helpbtn" id="helplink" href="aiuto_inversione.html">? Guida</a><button type="button" class="savebtn" id="saveimg" title="Salva un’immagine PNG con i grafici, i parametri e i risultati della simulazione">Salva immagine</button><div class="themesel" role="group" aria-label="Sfondo della pagina"><span>Sfondo</span><button type="button" data-t="auto">automatico</button><button type="button" data-t="light">chiaro</button><button type="button" data-t="dark">scuro</button></div></div>
 <header>
   <h1>Metodi di generazione: inversione della funzione di ripartizione</h1>
   <p id="sub">Si genera U uniforme in (0, 1) e si cerca il valore X per cui F(X) = U: X = F⁻¹(U) ha distribuzione F.</p>
@@ -264,7 +268,7 @@ const DISTS = [
     mom: ({ p }) => { const v = Math.pow(p, 2 / p) * G(3 / p) / G(1 / p); return [0, v, 0, G(5 / p) * G(1 / p) / G(3 / p) ** 2]; },
     range: ({ p }) => { const s = Math.sqrt(Math.pow(p, 2 / p) * G(3 / p) / G(1 / p)); const m = niceUp(Math.max(3, 4.5 * s)); return [-m, m, nice(2 * m / 80)]; } },
   { id: 'cauchy', name: 'Cauchy standard', params: [],
-    note: 'La Cauchy non ha media né varianza: le costanti simulate non si stabilizzano al crescere di n, e molti valori cadono fuori dall’intervallo dell’istogramma.',
+    note: 'La Cauchy non ha media né varianza: le statistiche campionarie non si stabilizzano al crescere di n, e molti valori cadono fuori dall’intervallo dell’istogramma.',
     r: () => Math.tan(Math.PI * (upos() - 0.5)), d: x => 1 / (Math.PI * (1 + x * x)),
     mom: () => [NaN, NaN, NaN, NaN], range: () => [-10, 10, 0.25] },
   { id: 'exp', name: 'Esponenziale standard', params: [],

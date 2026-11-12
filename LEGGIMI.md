@@ -17,6 +17,7 @@ Ogni pagina è un unico file HTML autonomo: non serve installare nulla.
 4. In alto in ogni pagina si sceglie lo sfondo: automatico (come il sistema), chiaro o scuro. La scelta vale per tutte le pagine e resta memorizzata.
 5. Nei moduli, il pulsante «Salva immagine» crea un file PNG con i grafici visibili, il titolo e i parametri della simulazione, le tabelle dei risultati e la data.
 6. Il pulsante «English» in alto apre la stessa pagina in inglese; nella versione inglese, «Italiano» riporta a quella italiana.
+7. Il pulsante «? Guida» apre la guida del modulo; dalla pagina iniziale apre la guida generale. Nel quadro delle scelte, il tasto Invio fa partire la simulazione.
 
 Funziona anche senza connessione a internet: in quel caso il browser usa i suoi caratteri di sistema al posto di quelli previsti.
 
@@ -35,6 +36,8 @@ Funziona anche senza connessione a internet: in quel caso il browser usa i suoi 
 | `simul_bivariate.html` | Simulazione di distribuzioni bivariate, con istogramma tridimensionale |
 | `simul_regressione_interattiva.html` | Regressione lineare interattiva |
 | `simul_massima_verosimiglianza.html` | Nuovo modulo: media e stimatore di massima verosimiglianza a confronto |
+| `aiuto.html` | Guida generale del programma |
+| `aiuto_*.html` | Guida di ciascun modulo: che cosa mostra, come si usa, suggerimenti per la didattica, dettagli tecnici |
 | `simul2000_guida.html` | Testi della guida in linea originale (WinHelp), convertiti per il browser |
 | `helpsimul2003.pdf` | Il manuale del 2003, con le schermate della versione originale |
 | `en/` | La versione inglese di tutte le pagine, con gli stessi nomi di file |

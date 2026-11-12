@@ -162,11 +162,15 @@ button[aria-pressed="true"]:not(.sw):not(.primary),button[aria-selected="true"]:
 .gotop button{padding:.7rem 1.5rem;font-size:1.02rem}
 .langlink{display:inline-flex;align-items:center;font:600 .9rem/1.2 "IBM Plex Sans",Arial,sans-serif;color:var(--accent,var(--title,#3C5A99));text-decoration:none;border:1.5px solid var(--accent,var(--title,#3C5A99));border-radius:6px;padding:.32rem .7rem}
 .langlink:hover{background:var(--sel,rgba(60,90,153,.12))}
+.helpbtn{display:inline-flex;align-items:center;gap:.3rem;font:600 .9rem/1.2 "IBM Plex Sans",Arial,sans-serif;color:var(--accent,#3C5A99);text-decoration:none;border:1.5px solid var(--accent,#3C5A99);border-radius:6px;padding:.32rem .7rem}
+.helpbtn:hover{background:var(--sel,rgba(60,90,153,.12))}
+.topbar .helpbtn{margin-left:auto}
+.topbar .helpbtn + .savebtn{margin-left:0}
 </style>
 </head>
 <body>
 <div class="wrap">
-<div class="topbar"><a class="home" id="homelink" href="index.html">← Menu iniziale</a><a class="langlink" id="langlink" href="en/simul_univariata.html" hreflang="en" lang="en">English</a><button type="button" class="savebtn" id="saveimg" title="Salva un’immagine PNG con i grafici, i parametri e i risultati della simulazione">Salva immagine</button><div class="themesel" role="group" aria-label="Sfondo della pagina"><span>Sfondo</span><button type="button" data-t="auto">automatico</button><button type="button" data-t="light">chiaro</button><button type="button" data-t="dark">scuro</button></div></div>
+<div class="topbar"><a class="home" id="homelink" href="index.html">← Menu iniziale</a><a class="langlink" id="langlink" href="en/simul_univariata.html" hreflang="en" lang="en">English</a><a class="helpbtn" id="helplink" href="aiuto_univariata.html">? Guida</a><button type="button" class="savebtn" id="saveimg" title="Salva un’immagine PNG con i grafici, i parametri e i risultati della simulazione">Salva immagine</button><div class="themesel" role="group" aria-label="Sfondo della pagina"><span>Sfondo</span><button type="button" data-t="auto">automatico</button><button type="button" data-t="light">chiaro</button><button type="button" data-t="dark">scuro</button></div></div>
 <header>
   <h1 id="title">Simulazioni univariate</h1>
   <p id="subtitle">Scegli la distribuzione e l’ampiezza della simulazione, poi premi OK.</p>
@@ -264,8 +268,8 @@ button[aria-pressed="true"]:not(.sw):not(.primary),button[aria-selected="true"]:
       <label class="check"><input type="checkbox" id="showstrip" checked> Striscia dei valori</label>
     </section>
 
-    <section class="panel" aria-label="Costanti statistiche">
-      <h2>Costanti statistiche</h2>
+    <section class="panel" aria-label="Statistiche campionarie">
+      <h2>Statistiche campionarie</h2>
       <table>
         <thead><tr><th>&nbsp;</th><th>simulato</th><th>teorico</th></tr></thead>
         <tbody>
@@ -359,7 +363,7 @@ const DISTS = [
     mom: ({ p }) => { const v = Math.pow(p, 2 / p) * G(3 / p) / G(1 / p); return [0, v, 0, G(5 / p) * G(1 / p) / G(3 / p) ** 2]; },
     range: ({ p }) => { const s = Math.sqrt(Math.pow(p, 2 / p) * G(3 / p) / G(1 / p)); const m = niceUp(Math.max(3, 4.5 * s)); return [-m, m, nice(2 * m / 80)]; } },
   { id: 'cauchy', name: 'Cauchy standard', params: [],
-    note: 'La Cauchy non ha media né varianza: le costanti simulate non si stabilizzano al crescere di n, e molti valori cadono fuori dall’intervallo dell’istogramma.',
+    note: 'La Cauchy non ha media né varianza: le statistiche campionarie non si stabilizzano al crescere di n, e molti valori cadono fuori dall’intervallo dell’istogramma.',
     r: () => Math.tan(Math.PI * (upos() - 0.5)), d: x => 1 / (Math.PI * (1 + x * x)),
     mom: () => [NaN, NaN, NaN, NaN], range: () => [-10, 10, 0.25] },
   { id: 'exp', name: 'Esponenziale standard', params: [],
@@ -829,5 +833,26 @@ window.__simul = { quantRange, freqTable, gammaQ, classProb, get probs() { retur
   if (h) { h.href = A('BCLMYMGyTLT6g9K4GZN3cT'); h.target = '_blank'; h.rel = 'noopener'; }
   if (l) { l.href = A('BmU637hbfQuQVFs6Ry96FB'); l.target = '_blank'; l.rel = 'noopener'; }
 })();</script>
+<script id="previewmap">(()=>{ // anteprima su claude.ai: collegamenti alle pagine pubblicate
+  if (!/claude/i.test(location.hostname)) return;
+  const M = {"index.html": ["BCLMYMGyTLT6g9K4GZN3cT", "7LfJGBvPKHLBxjGFFReBT6"], "simul_univariata.html": ["HftERHZjXa9qLpgbRih5Fa", "BmU637hbfQuQVFs6Ry96FB"], "simul_medie.html": ["ALi9k5mgT1byPwmdL2rwpg", "ETD1sHcKGJJJswFLwnGBFN"], "simul_massima_verosimiglianza.html": ["WE9PEWj5M6nGMggUgrERDN", "EjrEU9wHH1Xtau76yPDFzf"], "simul_montecarlo.html": ["HtFvMg7d1oBwSetk7524WR", "MuPZ2WeuwP5fHtvwbwWmm6"], "simul_inversione.html": ["DGWST7XarEdjq9fvNHzq9o", "6u8LZbmjfqEQhPZxZJfGPT"], "simul_bivariate.html": ["57jGBAFHedwjZfM3FpVbDd", "GNSgnxrGsg2Px6AHuarKh3"], "simul_regressione.html": ["2EGFKz69bbBMPTRB8BmCH7", "5XsTSyuyVXT8Cyf7Jp8wz8"], "simul_glm.html": ["AHWA5Lg9G72wWWJxoRcPgC", "8wQGSqNgxWqHVKRCaeVN68"], "simul_regressione_interattiva.html": ["QGUXDjvMfigMLJYJZ8h6SD", "45k8TqXv7dfncw67bqpHEp"], "simul_arma.html": ["Lhsk4g94NFKL4Czm2KRnAd", "GaAdsXsr9CDdLcSETLi3YX"], "simul2000_guida.html": ["An9MBNudBVM8JjTDv38uvd", "C8i95QsW3D5SXxXMwKmGok"], "aiuto.html": ["CUwAMarQaze35WDc9f1wfq", null], "aiuto_univariata.html": ["JwL6DL296DM1i7ELaCE1F3", null]}, lang = document.documentElement.lang === 'en' ? 1 : 0;
+  document.querySelectorAll('a[href]').forEach(a => { const h = a.getAttribute('href'); if (/^(https?:|mailto:|#|data:)/.test(h)) return;
+    let L = lang, f = h; if (f.startsWith('en/')) { L = 1; f = f.slice(3); } else if (f.startsWith('../')) { L = 0; f = f.slice(3); }
+    const [file, hash] = f.split('#'), e = M[file]; if (!e || !e[L]) return;
+    a.href = 'https://claude.ai/artifact/' + e[L] + (hash ? '#' + hash : ''); a.target = '_blank'; a.rel = 'noopener'; });
+})();</script>
+<script>
+// nel quadro delle scelte il tasto Invio fa partire la simulazione, come «OK, alla simulazione»
+(() => { const s = document.getElementById('setup'), ok = document.getElementById('ok'); if (!s || !ok) return;
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.isComposing || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey || s.hidden) return;
+    const t = e.target; if (t && (t.tagName === 'BUTTON' || t.tagName === 'A' || t.tagName === 'SUMMARY')) return;
+    if (t && t !== document.body && !s.contains(t)) return;
+    e.preventDefault();
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) t.dispatchEvent(new Event('change', { bubbles: true }));
+    ok.click();
+  });
+})();
+</script>
 </body>
 </html>

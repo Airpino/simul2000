@@ -162,11 +162,15 @@ button[aria-pressed="true"]:not(.sw):not(.primary),button[aria-selected="true"]:
 .gotop button{padding:.7rem 1.5rem;font-size:1.02rem}
 .langlink{display:inline-flex;align-items:center;font:600 .9rem/1.2 "IBM Plex Sans",Arial,sans-serif;color:var(--accent,var(--title,#3C5A99));text-decoration:none;border:1.5px solid var(--accent,var(--title,#3C5A99));border-radius:6px;padding:.32rem .7rem}
 .langlink:hover{background:var(--sel,rgba(60,90,153,.12))}
+.helpbtn{display:inline-flex;align-items:center;gap:.3rem;font:600 .9rem/1.2 "IBM Plex Sans",Arial,sans-serif;color:var(--accent,#3C5A99);text-decoration:none;border:1.5px solid var(--accent,#3C5A99);border-radius:6px;padding:.32rem .7rem}
+.helpbtn:hover{background:var(--sel,rgba(60,90,153,.12))}
+.topbar .helpbtn{margin-left:auto}
+.topbar .helpbtn + .savebtn{margin-left:0}
 </style>
 </head>
 <body>
 <div class="wrap">
-<div class="topbar"><a class="home" id="homelink" href="index.html">← Main menu</a><a class="langlink" id="langlink" href="../simul_montecarlo.html" hreflang="it" lang="it">Italiano</a><button type="button" class="savebtn" id="saveimg" title="Save a PNG image with the charts, the parameters and the results of the simulation">Save image</button><div class="themesel" role="group" aria-label="Page background"><span>Background</span><button type="button" data-t="auto">automatic</button><button type="button" data-t="light">light</button><button type="button" data-t="dark">dark</button></div></div>
+<div class="topbar"><a class="home" id="homelink" href="index.html">← Main menu</a><a class="langlink" id="langlink" href="../simul_montecarlo.html" hreflang="it" lang="it">Italiano</a><a class="helpbtn" id="helplink" href="aiuto_montecarlo.html">? Help</a><button type="button" class="savebtn" id="saveimg" title="Save a PNG image with the charts, the parameters and the results of the simulation">Save image</button><div class="themesel" role="group" aria-label="Page background"><span>Background</span><button type="button" data-t="auto">automatic</button><button type="button" data-t="light">light</button><button type="button" data-t="dark">dark</button></div></div>
 <header>
   <h1 id="title">Integration with the Monte Carlo method</h1>
   <p id="subtitle">Hit or miss method: random points are thrown into the unit square; the fraction of points falling below the curve estimates the integral of the function between 0 and 1.</p>
@@ -342,7 +346,7 @@ const DISTS = [
     mom: ({ p }) => { const v = Math.pow(p, 2 / p) * G(3 / p) / G(1 / p); return [0, v, 0, G(5 / p) * G(1 / p) / G(3 / p) ** 2]; },
     range: ({ p }) => { const s = Math.sqrt(Math.pow(p, 2 / p) * G(3 / p) / G(1 / p)); const m = niceUp(Math.max(3, 4.5 * s)); return [-m, m, nice(2 * m / 80)]; } },
   { id: 'cauchy', name: 'Standard Cauchy', params: [],
-    note: 'The Cauchy has neither mean nor variance: the simulated statistics do not settle down as n grows, and many values fall outside the range of the histogram.',
+    note: 'The Cauchy has neither mean nor variance: the sample statistics do not settle down as n grows, and many values fall outside the range of the histogram.',
     r: () => Math.tan(Math.PI * (upos() - 0.5)), d: x => 1 / (Math.PI * (1 + x * x)),
     mom: () => [NaN, NaN, NaN, NaN], range: () => [-10, 10, 0.25] },
   { id: 'exp', name: 'Standard exponential', params: [],
@@ -756,5 +760,18 @@ window.__simul = { FUNCS, configure, reset, batch, selectFunc, get st() { return
   if (h) { h.href = A('7LfJGBvPKHLBxjGFFReBT6'); h.target = '_blank'; h.rel = 'noopener'; }
   if (l) { l.href = A('HtFvMg7d1oBwSetk7524WR'); l.target = '_blank'; l.rel = 'noopener'; }
 })();</script>
+<script>
+// nel quadro delle scelte il tasto Invio fa partire la simulazione, come «OK, alla simulazione»
+(() => { const s = document.getElementById('setup'), ok = document.getElementById('ok'); if (!s || !ok) return;
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.isComposing || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey || s.hidden) return;
+    const t = e.target; if (t && (t.tagName === 'BUTTON' || t.tagName === 'A' || t.tagName === 'SUMMARY')) return;
+    if (t && t !== document.body && !s.contains(t)) return;
+    e.preventDefault();
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) t.dispatchEvent(new Event('change', { bubbles: true }));
+    ok.click();
+  });
+})();
+</script>
 </body>
 </html>

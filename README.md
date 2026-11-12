@@ -12,7 +12,7 @@ Every page is a single self-contained HTML file: nothing needs to be installed.
 - Italian version: open `index.html`.
 - English version: open `en/index.html`.
 
-Each page has a button at the top to switch to the same page in the other language, a “Main menu” button, a choice of light or dark background, and (in the modules) a “Save image” button that saves the charts together with the parameters and results of the simulation.
+Each page has a button at the top to switch to the same page in the other language, a “? Help” button that opens the help page of the module, a “Main menu” button, a choice of light or dark background, and (in the modules) a “Save image” button that saves the charts together with the parameters and results of the simulation.
 
 The pages also work offline; without a connection the browser simply uses its system fonts.
 
@@ -30,6 +30,8 @@ The pages also work offline; without a connection the browser simply uses its sy
 | `simul_bivariate.html` | Simulation of bivariate distributions, with a three-dimensional histogram |
 | `simul_regressione_interattiva.html` | Interactive linear regression |
 | `simul_massima_verosimiglianza.html` | New module: the arithmetic mean and the maximum likelihood estimator compared |
+| `aiuto.html` | General help |
+| `aiuto_*.html` | Help for each module: what it shows, how to use it, teaching suggestions, technical details |
 | `simul2000_guida.html` | The original online help, recovered from the WinHelp file |
 | `helpsimul2003.pdf` | The 2003 manual (in Italian), with screenshots of the original program |
 

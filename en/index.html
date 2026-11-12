@@ -131,11 +131,15 @@ button[aria-pressed="true"]:not(.sw):not(.primary),button[aria-selected="true"]:
 .gotop button{padding:.7rem 1.5rem;font-size:1.02rem}
 .langlink{display:inline-flex;align-items:center;font:600 .9rem/1.2 "IBM Plex Sans",Arial,sans-serif;color:var(--accent,var(--title,#3C5A99));text-decoration:none;border:1.5px solid var(--accent,var(--title,#3C5A99));border-radius:6px;padding:.32rem .7rem}
 .langlink:hover{background:var(--sel,rgba(60,90,153,.12))}
+.helpbtn{display:inline-flex;align-items:center;gap:.3rem;font:600 .9rem/1.2 "IBM Plex Sans",Arial,sans-serif;color:var(--accent,#3C5A99);text-decoration:none;border:1.5px solid var(--accent,#3C5A99);border-radius:6px;padding:.32rem .7rem}
+.helpbtn:hover{background:var(--sel,rgba(60,90,153,.12))}
+.topbar .helpbtn{margin-left:auto}
+.topbar .helpbtn + .savebtn{margin-left:0}
 </style>
 </head>
 <body>
 <div class="wrap">
-<div class="topbar" style="justify-content:flex-end"><a class="langlink" id="langlink" href="../index.html" hreflang="it" lang="it">Italiano</a><div class="themesel" role="group" aria-label="Page background"><span>Background</span><button type="button" data-t="auto">automatic</button><button type="button" data-t="light">light</button><button type="button" data-t="dark">dark</button></div></div>
+<div class="topbar" style="justify-content:flex-end"><a class="langlink" id="langlink" href="../index.html" hreflang="it" lang="it">Italiano</a><a class="helpbtn" id="helplink" href="aiuto.html">? Help</a><div class="themesel" role="group" aria-label="Page background"><span>Background</span><button type="button" data-t="auto">automatic</button><button type="button" data-t="light">light</button><button type="button" data-t="dark">dark</button></div></div>
 <header>
   <div>
     <h1>Simulations in <em>Statistics</em></h1>
