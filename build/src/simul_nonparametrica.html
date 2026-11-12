@@ -1,0 +1,483 @@
+@@THEME@@
+
+<title>{{Simul2000 · inferenza non parametrica|Simul2000 · nonparametric inference}}</title>
+@@CSS@@
+/* modulo non parametrico */
+.modes{display:grid;grid-template-columns:1fr;gap:.25rem}
+#strip{height:84px;margin:.15rem 0 .35rem}
+#main{height:min(46vh,24rem)}
+#second{height:13rem}
+td.lab{color:var(--muted)}
+.ok{color:var(--accent);font-weight:600}.no{color:var(--err);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+@@TOPBAR:simul_nonparametrica.html:aiuto_nonparametrica.html@@
+<header>
+  <h1 id="title">{{Inferenza non parametrica|Nonparametric inference}}</h1>
+  <p id="subtitle">{{Metodi che non chiedono di conoscere la forma della distribuzione: il bootstrap, i test di permutazione e i test basati sui ranghi, messi alla prova su popolazioni normali e non.|Methods that do not need the shape of the distribution: the bootstrap, permutation tests and rank-based tests, tried out on normal and non-normal populations.}}</p>
+</header>
+
+<!-- ================= QUADRO DELLE SCELTE ================= -->
+<section id="setup" class="setup" aria-label="{{Scelte della simulazione|Simulation choices}}">
+  <div class="gotop" style="grid-column:1/-1"><button type="button" class="primary" id="oktop">OK ▶</button><span class="hint" style="margin:0">{{oppure modifica prima le scelte qui sotto|or change the choices below first}}</span></div>
+  <div class="stack">
+    <div class="panel">
+      <h2>{{Che cosa simulare|What to simulate}}</h2>
+      <div class="modes" id="modes" role="radiogroup">
+        <label class="dist"><input type="radio" name="mode" value="boot" checked> <span>{{Bootstrap: l’errore standard e l’intervallo di una statistica da un solo campione|Bootstrap: standard error and interval of a statistic from a single sample}}</span></label>
+        <label class="dist"><input type="radio" name="mode" value="perm"> <span>{{Test di permutazione: due campioni a confronto|Permutation test: two samples compared}}</span></label>
+        <label class="dist"><input type="radio" name="mode" value="power"> <span>{{Potenza: test t e test di Wilcoxon-Mann-Whitney|Power: t test and Wilcoxon-Mann-Whitney test}}</span></label>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>{{Popolazione|Population}}</h2>
+      <label class="f" for="shape">{{Forma della distribuzione|Shape of the distribution}}</label>
+      <select id="shape"></select>
+      <div class="row">
+        <div><label class="f" for="mu">{{Posizione μ (la media; per la Cauchy la mediana)|Location μ (the mean; for the Cauchy the median)}}</label><input type="number" id="mu" value="0" step="any"></div>
+        <div><label class="f" for="sigma">{{Scala σ (lo scarto quadratico medio)|Scale σ (the standard deviation)}}</label><input type="number" id="sigma" value="1" step="any" min="0.0001"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="panel" id="pboot">
+      <h2>Bootstrap</h2>
+      <div class="row">
+        <div><label class="f" for="bn">{{Ampiezza del campione (n)|Sample size (n)}}</label><input type="number" id="bn" value="20" min="3" max="1000" step="1"></div>
+        <div><label class="f" for="stat">{{Statistica|Statistic}}</label>
+          <select id="stat"><option value="mean">{{media|mean}}</option><option value="median">{{mediana|median}}</option><option value="sd">{{scarto quadratico medio|standard deviation}}</option><option value="trim">{{media troncata al 20%|20% trimmed mean}}</option></select></div>
+      </div>
+      <div class="row">
+        <div><label class="f" for="bB">{{Campioni bootstrap (B)|Bootstrap samples (B)}}</label>
+          <select id="bB"><option value="1000">1.000</option><option value="5000" selected>5.000</option><option value="20000">20.000</option></select></div>
+        <div><label class="f" for="bconf">{{Livello dell’intervallo|Interval level}}</label>
+          <select id="bconf"><option value="0.9">90%</option><option value="0.95" selected>95%</option></select></div>
+      </div>
+      <p class="hint">{{Ogni campione bootstrap si estrae con reinserimento dal campione osservato, con la stessa ampiezza n.|Each bootstrap sample is drawn with replacement from the observed sample, with the same size n.}}</p>
+    </div>
+    <div class="panel" id="pperm" hidden>
+      <h2>{{Due campioni|Two samples}}</h2>
+      <div class="row">
+        <div><label class="f" for="n1">{{Primo campione (n₁)|First sample (n₁)}}</label><input type="number" id="n1" value="12" min="2" max="500" step="1"></div>
+        <div><label class="f" for="n2">{{Secondo campione (n₂)|Second sample (n₂)}}</label><input type="number" id="n2" value="12" min="2" max="500" step="1"></div>
+      </div>
+      <div class="row">
+        <div><label class="f" for="delta">{{Spostamento del secondo, in unità σ (δ)|Shift of the second, in σ units (δ)}}</label><input type="number" id="delta" value="0.8" step="any"></div>
+        <div id="pstatbox"><label class="f" for="pstat">{{Statistica|Statistic}}</label>
+          <select id="pstat"><option value="mean">{{differenza fra le medie|difference of the means}}</option><option value="median">{{differenza fra le mediane|difference of the medians}}</option></select></div>
+        <div id="alphabox" hidden><label class="f" for="alpha">α</label>
+          <select id="alpha"><option value="0.01">0,01</option><option value="0.05" selected>0,05</option><option value="0.1">0,10</option></select></div>
+      </div>
+      <div class="row">
+        <div id="Pbox"><label class="f" for="P">{{Permutazioni|Permutations}}</label>
+          <select id="P"><option value="1000">1.000</option><option value="5000" selected>5.000</option><option value="20000">20.000</option></select></div>
+        <div id="mbox" hidden><label class="f" for="m">{{Ripetizioni dell’esperimento|Repetitions of the experiment}}</label>
+          <select id="m"><option value="1000" selected>1.000</option><option value="10000">10.000</option></select></div>
+      </div>
+      <p class="hint" id="phint"></p>
+    </div>
+    <div class="panel">
+      <div class="row"><div><label class="f" for="nparz">{{Aggiorna ogni|Update every}}</label><input type="number" id="nparz" value="20" min="1" step="1"></div><div></div></div>
+    </div>
+    @@SEED@@
+    @@COLORS@@
+  </div>
+
+  <div style="grid-column:1/-1">
+    <p class="err" id="err" role="alert"></p>
+    <div class="go"><button class="primary" id="ok">{{OK, alla simulazione|OK, to the simulation}}</button></div>
+  </div>
+</section>
+
+<!-- ================= QUADRO DELLA SIMULAZIONE ================= -->
+<section id="run" class="run" hidden aria-label="{{Simulazione|Simulation}}">
+  <div class="maincol">
+    <section class="panel chart">
+      <div class="chart-head">
+        <div class="countbox"><span class="count" id="count"></span><div class="progress" aria-hidden="true"><i id="bar"></i></div></div>
+        <span class="note" id="outside"></span>
+      </div>
+      <div id="stripbox"><div class="caption" id="stripcap"></div><canvas id="strip"></canvas></div>
+      <div class="caption" id="cap1"></div>
+      <canvas id="main" role="img" aria-label="{{Grafico principale|Main chart}}"></canvas>
+    </section>
+    <section class="panel chart" style="margin-top:1rem" id="secondbox">
+      <div class="caption" id="cap2"></div>
+      <canvas id="second" role="img" aria-label="{{Secondo grafico|Second chart}}"></canvas>
+    </section>
+    <p class="foot" id="foot" style="margin-top:.8rem"></p>
+  </div>
+  <div class="side">
+    <section class="panel" aria-label="{{Comandi|Controls}}">
+      <div class="buttons">
+        <button class="primary" id="go">{{Avvia|Start}}</button>
+        <button id="all">{{Completa|Complete}}</button>
+        <button id="reset">{{Ricomincia|Restart}}</button>
+        <button id="back">{{Scelte|Choices}}</button>
+      </div>
+      <button id="newsample" style="width:100%;margin-bottom:.8rem">{{Nuovo campione osservato|New observed sample}}</button>
+      <label class="f" for="speed">{{Velocità|Speed}}</label>
+      <input type="range" id="speed" min="1" max="60" value="10">
+      <div class="speedval" id="speedval"></div>
+    </section>
+    <section class="panel">
+      <h2 id="tabtitle">{{Risultati|Results}}</h2>
+      <table><tbody id="tab"></tbody></table>
+      <p class="foot" id="tabnote" style="margin-top:.7rem"></p>
+    </section>
+  </div>
+</section>
+</div>
+
+<script>
+(() => {
+'use strict';
+@@CORE@@
+
+SHAPES.forEach((s, i) => { const o = document.createElement('option'); o.value = i; o.textContent = s.name; $('shape').appendChild(o); });
+const mode = () => document.querySelector('input[name=mode]:checked').value;
+function syncSetup() {
+  const md = mode();
+  document.querySelectorAll('#modes .dist').forEach(l => l.classList.toggle('on', l.querySelector('input').checked));
+  $('pboot').hidden = md !== 'boot'; $('pperm').hidden = md === 'boot';
+  $('pstatbox').hidden = md !== 'perm'; $('Pbox').hidden = md !== 'perm';
+  $('alphabox').hidden = md !== 'power'; $('mbox').hidden = md !== 'power';
+  $('phint').textContent = md === 'perm'
+    ? '{{Con δ = 0 i due campioni vengono dalla stessa popolazione: l’ipotesi nulla è vera.|With δ = 0 the two samples come from the same population: the null hypothesis is true.}}'
+    : '{{Ogni ripetizione estrae due nuovi campioni e applica entrambi i test. I risultati restano sul grafico della potenza finché non si cambiano forma, n₁, n₂ o α.|Each repetition draws two new samples and applies both tests. The results stay on the power chart until you change the shape, n₁, n₂ or α.}}';
+}
+document.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener('change', syncSetup));
+$('newseed').onclick = () => { $('seed').value = 1 + Math.floor(Math.random() * 2147483645); };
+syncSetup(); initColors();
+
+// ================= statistiche =================
+const sorted = a => Float64Array.from(a).sort();
+function qsorted(s, p) { const h = (s.length - 1) * p, i = Math.floor(h); return i + 1 < s.length ? s[i] + (h - i) * (s[i + 1] - s[i]) : s[i]; }
+const STAT = {
+  mean: a => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i]; return s / a.length; },
+  median: a => qsorted(sorted(a), 0.5),
+  sd: a => { const n = a.length; let s = 0, ss = 0; for (let i = 0; i < n; i++) { s += a[i]; ss += a[i] * a[i]; } const m = s / n; return Math.sqrt(Math.max(0, (ss - n * m * m) / (n - 1))); },
+  trim: a => { const s = sorted(a), g = Math.floor(0.2 * s.length); let t = 0; for (let i = g; i < s.length - g; i++) t += s[i]; return t / (s.length - 2 * g); }
+};
+const STATNAME = { mean: '{{media|mean}}', median: '{{mediana|median}}', sd: '{{scarto quadratico medio|standard deviation}}', trim: '{{media troncata al 20%|20% trimmed mean}}' };
+// t a due campioni (varianza comune): p-value bilaterale
+function tTest(x, y) {
+  const n1 = x.length, n2 = y.length, m1 = STAT.mean(x), m2 = STAT.mean(y);
+  let s1 = 0, s2 = 0; for (const v of x) s1 += (v - m1) ** 2; for (const v of y) s2 += (v - m2) ** 2;
+  const sp = Math.sqrt((s1 + s2) / (n1 + n2 - 2)), t = (m2 - m1) / (sp * Math.sqrt(1 / n1 + 1 / n2));
+  if (!Number.isFinite(t)) return 1;
+  return 2 * (1 - pt(Math.abs(t), n1 + n2 - 2));
+}
+// Wilcoxon-Mann-Whitney: distribuzione esatta di U per campioni piccoli, normale con correzione di continuità per quelli grandi
+let wmx = null;
+function wmxTable(n1, n2) {
+  if (n1 > 25 || n2 > 25) return null;
+  const U = n1 * n2; let f = [];
+  // f[i][j] = conteggi di U per campioni di ampiezza i e j
+  for (let i = 0; i <= n1; i++) { f[i] = []; for (let j = 0; j <= n2; j++) {
+    const v = new Float64Array(i * j + 1);
+    if (i === 0 || j === 0) v[0] = 1;
+    else { const a = f[i - 1][j], b = f[i][j - 1]; for (let u = 0; u < b.length; u++) v[u] += b[u]; for (let u = 0; u < a.length; u++) v[u + j] += a[u]; }
+    f[i][j] = v; } }
+  const c = f[n1][n2], tot = c.reduce((s, x) => s + x, 0), cdf = new Float64Array(U + 1);
+  let s = 0; for (let u = 0; u <= U; u++) { s += c[u]; cdf[u] = s / tot; }
+  return cdf;
+}
+function wmxTest(x, y) {
+  const n1 = x.length, n2 = y.length, all = [];
+  for (const v of x) all.push([v, 0]); for (const v of y) all.push([v, 1]);
+  all.sort((a, b) => a[0] - b[0]);
+  let R1 = 0; for (let i = 0; i < all.length; i++) if (all[i][1] === 0) R1 += i + 1;
+  const u = R1 - n1 * (n1 + 1) / 2;
+  if (wmx) { const lo = wmx[u], hi = 1 - (u > 0 ? wmx[u - 1] : 0); return Math.min(1, 2 * Math.min(lo, hi)); }
+  const mU = n1 * n2 / 2, sU = Math.sqrt(n1 * n2 * (n1 + n2 + 1) / 12), z = (Math.abs(u - mU) - 0.5) / sU;
+  return Math.min(1, 2 * (1 - pnorm(Math.max(0, z))));
+}
+// efficienza relativa asintotica del test di Wilcoxon rispetto al t, per alternative di spostamento: 12σ²(∫f²)²
+function ARE(sh) {
+  if (sh.noMoments) return Infinity;
+  let s = 0; const a = -40, b = 40, N = 80000, h = (b - a) / N;
+  for (let i = 0; i < N; i++) { const y = sh.d(a + (i + 0.5) * h); s += y * y * h; }
+  return 12 * s * s;
+}
+// potenza teorica del t a due campioni per dati normali (t non centrale, integrando sulla distribuzione di s)
+function powerT(d, n1, n2, alpha) {
+  const nu = n1 + n2 - 2, dnc = d / Math.sqrt(1 / n1 + 1 / n2), k = qt(1 - alpha / 2, nu);
+  const U = Math.sqrt(nu + 12 * Math.sqrt(2 * nu) + 40), N = 600, h = U / N, lc = Math.log(2) - (nu / 2) * Math.log(2) - lgamma(nu / 2);
+  let s = 0;
+  for (let i = 0; i <= N; i++) { const u = i * h, f = u === 0 ? 0 : Math.exp(lc + (nu - 1) * Math.log(u) - u * u / 2), fac = u / Math.sqrt(nu);
+    const w = i === 0 || i === N ? 1 : i % 2 ? 4 : 2; s += w * f * (pnorm(-k * fac - dnc) + 1 - pnorm(k * fac - dnc)); }
+  return Math.min(1, s * h / 3);
+}
+
+// ================= stato =================
+let cfg, k, M, nparz, running = false, completing = false, acc = 0;
+let obs, obs2, cur = null, curLab = null, H, vals, trueVals, trueSE, trueMean, popLo, popHi, hitT, hitW, trace, powPts = [], powKey = '', cntExt;
+const draw1 = c => c.mu + c.sigma * c.shape.r();
+function configure() {
+  const md = mode(), c = { md };
+  c.shape = SHAPES[+$('shape').value]; c.mu = readNum('mu', -1e6, 1e6, '{{Posizione|Location}}'); c.sigma = readNum('sigma', 1e-6, 1e6, '{{Scala|Scale}}');
+  if (md === 'boot') {
+    c.n = readNum('bn', 3, 1000, '{{Ampiezza del campione|Sample size}}', true); c.stat = $('stat').value; M = +$('bB').value; c.conf = +$('bconf').value;
+    if (c.shape.noMoments && (c.stat === 'mean' || c.stat === 'sd')) c.warn = '{{La Cauchy non ha media né varianza: il vero valore non esiste, e né il bootstrap né la distribuzione campionaria si stabilizzano.|The Cauchy has no mean and no variance: the true value does not exist, and neither the bootstrap nor the sampling distribution settles down.}}';
+  } else {
+    c.n1 = readNum('n1', 2, 500, 'n₁', true); c.n2 = readNum('n2', 2, 500, 'n₂', true); c.delta = readNum('delta', -20, 20, 'δ');
+    if (md === 'perm') { c.stat = $('pstat').value; M = +$('P').value; }
+    else { c.alpha = +$('alpha').value; M = +$('m').value; wmx = wmxTable(c.n1, c.n2); }
+  }
+  let q = Math.max(1, Math.min(M, Math.round(num('nparz')) || 1)); while (M % q) q--; nparz = q; $('nparz').value = q;
+  cfg = c;
+  // un grande campione della popolazione, per i quantili e per i valori “veri” che non hanno una formula semplice
+  setSeed((num('seed') || 1) + 104729);
+  const big = new Float64Array(200000); for (let i = 0; i < big.length; i++) big[i] = c.shape.r(); big.sort();
+  popLo = c.mu + c.sigma * qsorted(big, 0.003); popHi = c.mu + c.sigma * qsorted(big, 0.997);
+  if (md === 'boot') {
+    c.theta = c.stat === 'mean' ? (c.shape.noMoments ? NaN : c.mu) : c.stat === 'median' ? c.mu + c.sigma * c.shape.med : c.stat === 'sd' ? (c.shape.noMoments ? NaN : c.sigma) : c.mu + c.sigma * STAT.trim(big);
+    // distribuzione campionaria “vera”: molti campioni dalla popolazione
+    const R = Math.max(2000, Math.min(20000, Math.floor(4e6 / c.n))), f = STAT[c.stat], smp = new Float64Array(c.n);
+    trueVals = new Float64Array(R);
+    for (let r = 0; r < R; r++) { for (let i = 0; i < c.n; i++) smp[i] = draw1(c); trueVals[r] = f(smp); }
+    const sv = sorted(trueVals); trueMean = STAT.mean(sv.subarray(Math.floor(R * 0.001), Math.ceil(R * 0.999))); trueSE = STAT.sd(trueVals);
+    c.tlo = qsorted(sv, 0.005); c.thi = qsorted(sv, 0.995);
+  } else if (md === 'perm') {
+    // la scala dell’istogramma si fissa dopo aver visto i dati
+  } else {
+    const key = [c.shape.id, c.n1, c.n2, c.alpha].join('|'); if (key !== powKey) { powPts = []; powKey = key; }
+    c.are = ARE(c.shape); c.pT = powerT(Math.abs(c.delta), c.n1, c.n2, c.alpha);
+  }
+  setTexts();
+}
+function newObserved() {
+  const c = cfg;
+  if (c.md === 'boot') {
+    obs = new Float64Array(c.n); for (let i = 0; i < c.n; i++) obs[i] = draw1(c);
+    c.est = STAT[c.stat](obs);
+    // classi dell’istogramma: devono contenere sia la distribuzione bootstrap (attorno alla stima) sia quella vera (attorno a θ)
+    const ctr = Number.isFinite(trueMean) ? trueMean : c.est, lo = Math.min(c.tlo, c.est - (ctr - c.tlo) * 1.25), hi = Math.max(c.thi, c.est + (c.thi - ctr) * 1.25);
+    const w = nice((hi - lo) / 60); H = makeHist(Math.floor(lo / w) * w, Math.ceil(hi / w) * w, Math.round((Math.ceil(hi / w) - Math.floor(lo / w))));
+    vals = new Float64Array(M); c.tvs = null;
+  } else if (c.md === 'perm') {
+    obs = new Float64Array(c.n1); obs2 = new Float64Array(c.n2);
+    for (let i = 0; i < c.n1; i++) obs[i] = draw1(c); for (let i = 0; i < c.n2; i++) obs2[i] = draw1(c) + c.delta * c.sigma;
+    const f = STAT[c.stat]; c.est = f(obs2) - f(obs);
+    const all = Float64Array.from([...obs, ...obs2]); c.pool = all;
+    c.sdPerm = STAT.sd(all) * Math.sqrt(1 / c.n1 + 1 / c.n2) * (c.stat === 'median' ? 1.3 : 1);
+    const half = Math.max(4.5 * c.sdPerm, Math.abs(c.est) * 1.15), w = nice(2 * half / 60);
+    H = makeHist(-Math.ceil(half / w) * w, Math.ceil(half / w) * w, 2 * Math.ceil(half / w));
+    c.pT = tTest(obs, obs2); wmx = wmxTable(c.n1, c.n2); c.pW = wmxTest(obs, obs2);
+  }
+  cur = null; curLab = null; k = 0; cntExt = 0; hitT = hitW = 0; trace = [];
+}
+function setTexts() {
+  const c = cfg, sname = c.shape.name.replace(/ \(.*\)$/, '');
+  $('newsample').hidden = c.md === 'power'; $('stripbox').hidden = c.md === 'power';
+  if (c.md === 'boot') {
+    $('title').textContent = `Bootstrap {{della|of the}} ${STATNAME[c.stat]}: ${sname}, n = ${c.n}`;
+    $('subtitle').textContent = `${fmtn(M)} {{campioni bootstrap estratti con reinserimento dal campione osservato; popolazione con|bootstrap samples drawn with replacement from the observed sample; population with}} μ = ${fmtp(c.mu)}, σ = ${fmtp(c.sigma)}.`;
+    $('stripcap').textContent = '{{In alto il campione osservato; in basso l’ultimo campione bootstrap, con i valori estratti più volte impilati. La linea tratteggiata è il vero valore della statistica nella popolazione.|Top: the observed sample; bottom: the latest bootstrap sample, with values drawn more than once stacked. The dashed line is the true value of the statistic in the population.}}';
+    $('cap1').textContent = '{{Barre: distribuzione bootstrap della statistica. Curva: la sua vera distribuzione campionaria, ottenuta da molti campioni della popolazione. La zona colorata è l’intervallo percentile; la linea continua è la stima del campione osservato.|Bars: bootstrap distribution of the statistic. Curve: its true sampling distribution, from many samples of the population. The shaded zone is the percentile interval; the solid line is the estimate from the observed sample.}}';
+    $('secondbox').hidden = true;
+    $('foot').textContent = '{{Il bootstrap imita il campionamento dalla popolazione campionando dal campione: la distribuzione bootstrap è centrata sulla stima, non sul vero valore, ma la sua dispersione approssima quella della vera distribuzione campionaria. Con “Nuovo campione osservato” si vede quanto dipende dal campione che è capitato.|The bootstrap imitates sampling from the population by sampling from the sample: the bootstrap distribution is centred on the estimate, not on the true value, but its spread approximates that of the true sampling distribution. With “New observed sample” you see how much it depends on the sample you happened to get.}}';
+  } else if (c.md === 'perm') {
+    $('title').textContent = `{{Test di permutazione|Permutation test}}: ${sname}, n₁ = ${c.n1}, n₂ = ${c.n2}, δ = ${fmtp(c.delta)}`;
+    $('subtitle').textContent = `${fmtn(M)} {{permutazioni casuali delle etichette dei due gruppi; statistica|random permutations of the group labels; statistic}}: ${$('pstat').selectedOptions[0].textContent}.`;
+    $('stripcap').textContent = '{{I dati osservati: in alto il primo gruppo, in basso il secondo. Durante la simulazione i colori restano quelli dei gruppi originali, ma la riga è quella assegnata dall’ultima permutazione.|The observed data: top row the first group, bottom row the second. During the simulation the colours stay those of the original groups, but the row is the one given by the latest permutation.}}';
+    $('cap1').textContent = '{{Distribuzione di permutazione della statistica: i valori che si otterrebbero se le etichette dei gruppi non contassero nulla. Le linee verticali sono il valore osservato e il suo opposto; le barre colorate oltre di esse formano il p-value. La curva è l’approssimazione normale.|Permutation distribution of the statistic: the values you would get if the group labels did not matter at all. The vertical lines are the observed value and its opposite; the coloured bars beyond them make up the p-value. The curve is the normal approximation.}}';
+    $('secondbox').hidden = true;
+    $('foot').textContent = '{{Il test di permutazione non chiede la normalità: sotto H₀ (stessa distribuzione nei due gruppi) ogni assegnazione delle etichette è ugualmente probabile, e il p-value è la frazione di assegnazioni che danno una differenza almeno grande come quella osservata.|The permutation test does not require normality: under H₀ (same distribution in both groups) every assignment of the labels is equally likely, and the p-value is the fraction of assignments giving a difference at least as large as the observed one.}}';
+  } else {
+    $('title').textContent = `{{Test t e test di Wilcoxon-Mann-Whitney|t test and Wilcoxon-Mann-Whitney test}}: ${sname}, δ = ${fmtp(c.delta)}`;
+    $('subtitle').textContent = `${fmtn(M)} {{ripetizioni; due campioni di|repetitions; two samples of}} ${c.n1} {{e|and}} ${c.n2} {{elementi, il secondo spostato di|elements, the second shifted by}} δσ; α = ${fmtp(c.alpha)}, {{test bilaterali|two-sided tests}}.`;
+    $('cap1').textContent = '{{Percentuale di rifiuti di H₀ al crescere delle ripetizioni, per i due test. Con δ = 0 è la probabilità di errore di I tipo e dovrebbe stare vicino ad α (linea tratteggiata).|Percentage of rejections of H₀ as the repetitions grow, for the two tests. With δ = 0 it is the type I error rate and should stay close to α (dashed line).}}';
+    $('cap2').textContent = '{{Potenza al variare dello spostamento δ: la curva è la potenza teorica del test t per dati normali, i punti sono i risultati delle simulazioni fatte finora (con ±2 errori standard).|Power as the shift δ changes: the curve is the theoretical power of the t test for normal data, the points are the results of the simulations run so far (with ±2 standard errors).}}';
+    $('secondbox').hidden = false;
+    $('foot').textContent = '{{Il test di Wilcoxon-Mann-Whitney usa solo i ranghi: con dati normali perde pochissimo rispetto al t (efficienza asintotica 3/π ≈ 0,955), con code pesanti o forte asimmetria può essere molto più potente.|The Wilcoxon-Mann-Whitney test uses only the ranks: with normal data it loses very little to the t test (asymptotic efficiency 3/π ≈ 0.955), with heavy tails or strong skewness it can be much more powerful.}}';
+  }
+}
+function reset() {
+  setSeed(num('seed') || 1);
+  newObserved();
+  running = false; completing = false; acc = 0;
+  $('go').textContent = '{{Avvia|Start}}'; $('go').disabled = false; $('all').disabled = false;
+  updateText(); updateSpeedText();
+}
+function shuffleInto(src, dst) { dst.set(src); for (let i = dst.length - 1; i > 0; i--) { const j = Math.floor(unif() * (i + 1)); const t = dst[i]; dst[i] = dst[j]; dst[j] = t; } }
+function batch(q, quiet) {
+  q = Math.min(q, M - k); const c = cfg;
+  if (c.md === 'boot') {
+    const f = STAT[c.stat], n = c.n, r = new Float64Array(n), idx = new Int32Array(n);
+    for (let j = 0; j < q; j++) { for (let i = 0; i < n; i++) { idx[i] = Math.floor(unif() * n); r[i] = obs[idx[i]]; } const v = f(r); vals[k] = v; histAdd(H, v); k++; if (j === q - 1) cur = idx; }
+  } else if (c.md === 'perm') {
+    const f = STAT[c.stat], N = c.n1 + c.n2, order = new Int32Array(N), a = new Float64Array(c.n1), b = new Float64Array(c.n2);
+    for (let j = 0; j < q; j++) {
+      for (let i = 0; i < N; i++) order[i] = i;
+      for (let i = N - 1; i > 0; i--) { const t = Math.floor(unif() * (i + 1)); const s = order[i]; order[i] = order[t]; order[t] = s; }
+      for (let i = 0; i < c.n1; i++) a[i] = c.pool[order[i]]; for (let i = 0; i < c.n2; i++) b[i] = c.pool[order[c.n1 + i]];
+      const v = f(b) - f(a); histAdd(H, v); if (Math.abs(v) >= Math.abs(c.est) - 1e-12) cntExt++; k++;
+      if (j === q - 1) curLab = order.slice();
+    }
+  } else {
+    const x = new Float64Array(c.n1), y = new Float64Array(c.n2);
+    for (let j = 0; j < q; j++) {
+      for (let i = 0; i < c.n1; i++) x[i] = draw1(c); for (let i = 0; i < c.n2; i++) y[i] = draw1(c) + c.delta * c.sigma;
+      if (tTest(x, y) <= c.alpha) hitT++; if (wmxTest(x, y) <= c.alpha) hitW++; k++;
+    }
+    trace.push([k, hitT / k, hitW / k]);
+    const i = powPts.findIndex(p => p.d === Math.abs(c.delta)), P = { d: Math.abs(c.delta), t: hitT / k, w: hitW / k, k };
+    if (i >= 0) powPts[i] = P; else powPts.push(P);
+  }
+  if (k >= M) { running = false; completing = false; $('go').textContent = '{{Fatto|Done}}'; $('go').disabled = true; $('all').disabled = true; }
+  if (!quiet) updateText();
+}
+const row = (lab, ...v) => `<tr><td class="lab">${lab}</td>${v.map(x => `<td>${x}</td>`).join('')}</tr>`;
+const inside = (a, b, t) => !Number.isFinite(t) ? '' : (a <= t && t <= b ? ' <span class="ok">✓</span>' : ' <span class="no">✗</span>');
+function updateText() {
+  const c = cfg;
+  $('count').textContent = `${fmtn(k)} ${c.md === 'boot' ? '{{campioni bootstrap su|bootstrap samples out of}}' : c.md === 'perm' ? '{{permutazioni su|permutations out of}}' : '{{ripetizioni su|repetitions out of}}'} ${fmtn(M)}`;
+  $('bar').style.width = (100 * k / M) + '%';
+  $('outside').textContent = H && H.out && c.md !== 'power' ? `${fmtn(H.out)} {{valori fuori dal grafico|values outside the chart}}` : '';
+  let h = ''; const d = 4;
+  if (c.md === 'boot') {
+    $('tabtitle').textContent = '{{Bootstrap e realtà|Bootstrap and reality}}';
+    h += `<tr><th></th><th>bootstrap</th><th>{{vera|true}}</th></tr>`;
+    h += row('{{Valore nella popolazione θ|Value in the population θ}}', '', fmt(c.theta, d));
+    h += row('{{Stima dal campione θ̂|Estimate from the sample θ̂}}', fmt(c.est, d), '');
+    let bm = NaN, bse = NaN, qlo = NaN, qhi = NaN;
+    if (k > 1) { const v = vals.subarray(0, k), s = sorted(v); bm = STAT.mean(v); bse = STAT.sd(v); const a = (1 - c.conf) / 2; qlo = qsorted(s, a); qhi = qsorted(s, 1 - a); c.qlo = qlo; c.qhi = qhi; }
+    h += row('{{Errore standard|Standard error}}', `<span class="big">${fmt(bse, d)}</span>`, `<span class="big">${fmt(trueSE, d)}</span>`);
+    h += row('{{Distorsione|Bias}}', fmt(bm - c.est, d), fmt(trueMean - c.theta, d));
+    const z = qnorm(1 - (1 - c.conf) / 2), L = Math.round(100 * c.conf);
+    h += row(`{{Intervallo percentile al|Percentile interval at}} ${L}%`, `${fmt(qlo, 3)} – ${fmt(qhi, 3)}${inside(qlo, qhi, c.theta)}`, '');
+    h += row(`{{Intervallo “base” al|“Basic” interval at}} ${L}%`, `${fmt(2 * c.est - qhi, 3)} – ${fmt(2 * c.est - qlo, 3)}${inside(2 * c.est - qhi, 2 * c.est - qlo, c.theta)}`, '');
+    h += row(`{{Intervallo normale al|Normal interval at}} ${L}%`, `${fmt(c.est - z * bse, 3)} – ${fmt(c.est + z * bse, 3)}${inside(c.est - z * bse, c.est + z * bse, c.theta)}`, '');
+    $('tabnote').textContent = c.warn || (c.stat === 'median' && c.n < 40 ? '{{Per la mediana di campioni piccoli la distribuzione bootstrap è a gradini: può prendere solo i pochi valori del campione.|For the median of small samples the bootstrap distribution is step-like: it can only take the few values in the sample.}}' : '{{✓ e ✗ dicono se l’intervallo contiene il vero valore: per un singolo campione può capitare l’uno o l’altro.|✓ and ✗ tell whether the interval contains the true value: for a single sample either can happen.}}');
+  } else if (c.md === 'perm') {
+    $('tabtitle').textContent = '{{Il test|The test}}';
+    const p = k ? cntExt / k : NaN;
+    h += row('{{Differenza osservata|Observed difference}}', fmt(c.est, d));
+    h += row('{{Permutazioni con differenza, in valore assoluto, almeno pari a quella osservata|Permutations with an absolute difference at least as large as the observed one}}', `${fmtn(cntExt)} / ${fmtn(k)}`);
+    h += row('{{p-value di permutazione|Permutation p-value}}', `<span class="big">${fmt(p, 4)}</span>`);
+    h += row('{{Errore standard Monte Carlo|Monte Carlo standard error}}', k ? fmt(Math.sqrt(p * (1 - p) / k), 4) : '–');
+    h += row('{{p-value del test t (varianza comune)|p-value of the t test (pooled variance)}}', fmt(c.pT, 4));
+    h += row(`{{p-value di Wilcoxon-Mann-Whitney|Wilcoxon-Mann-Whitney p-value}} (${wmx ? '{{esatto|exact}}' : '{{approssimato|approximate}}'})`, fmt(c.pW, 4));
+    $('tabnote').textContent = '{{Il p-value di permutazione è stimato: con più permutazioni l’errore Monte Carlo diminuisce. Con dati normali è vicino a quello del test t.|The permutation p-value is estimated: with more permutations the Monte Carlo error shrinks. With normal data it is close to that of the t test.}}';
+  } else {
+    $('tabtitle').textContent = Math.abs(c.delta) < 1e-12 ? '{{Errore di I tipo|Type I error}}' : '{{Potenza|Power}}';
+    const rt = k ? hitT / k : NaN, rw = k ? hitW / k : NaN, se = r => k ? fmtpct(Math.sqrt(r * (1 - r) / k), 2) : '–';
+    h += `<tr><th></th><th>t</th><th>WMW</th></tr>`;
+    h += row('{{Rifiuti di H₀|Rejections of H₀}}', `<span class="big">${fmtpct(rt)}</span>`, `<span class="big">${fmtpct(rw)}</span>`);
+    h += row('{{Errore standard Monte Carlo|Monte Carlo standard error}}', se(rt), se(rw));
+    h += row(Math.abs(c.delta) < 1e-12 ? '{{Livello nominale α|Nominal level α}}' : '{{Potenza teorica del t per dati normali|Theoretical t power for normal data}}', Math.abs(c.delta) < 1e-12 ? fmtpct(c.alpha, 0) : fmtpct(c.pT), '');
+    h += row('{{Efficienza asintotica di WMW rispetto a t|Asymptotic efficiency of WMW relative to t}}', '', Number.isFinite(c.are) ? fmt(c.are, 3) : '∞');
+    $('tabnote').textContent = (wmx ? '{{Il p-value di WMW è calcolato con la distribuzione esatta.|The WMW p-value uses the exact distribution.}}' : '{{Il p-value di WMW usa l’approssimazione normale.|The WMW p-value uses the normal approximation.}}') + ' ' + '{{Un’efficienza maggiore di 1 vuol dire che, per campioni grandi, WMW ha bisogno di meno osservazioni del t per la stessa potenza.|An efficiency above 1 means that, for large samples, WMW needs fewer observations than the t test for the same power.}}';
+  }
+  $('tab').innerHTML = h;
+}
+const ups = () => +$('speed').value;
+function updateSpeedText() { const secs = Math.ceil(M / nparz) / ups(); $('speedval').textContent = `${ups()} {{aggiornamenti al secondo · circa|updates per second · about}} ${secs < 1 ? '{{meno di 1|less than 1}}' : fmtn(Math.round(secs))} {{s in tutto|s in all}}`; }
+
+// ================= disegno =================
+function drawStrip() {
+  const c = cfg, [ctx, w, h] = fit($('strip'));
+  ctx.clearRect(0, 0, w, h);
+  const all = c.md === 'boot' ? obs : c.pool;
+  let x0 = Math.min(popLo, ...all), x1 = Math.max(popHi, ...all);
+  x0 = Math.max(x0, popLo - (popHi - popLo) * 0.3); x1 = Math.min(x1, popHi + (popHi - popLo) * 0.3);
+  const L = 54, R = 12, PX = x => L + (Math.min(x1, Math.max(x0, x)) - x0) / (x1 - x0) * (w - L - R);
+  const y1 = 18, y2 = 52;
+  ctx.strokeStyle = C.rule; ctx.lineWidth = 1;
+  for (const y of [y1, y2]) { ctx.beginPath(); ctx.moveTo(L, y + 8.5); ctx.lineTo(w - R, y + 8.5); ctx.stroke(); }
+  ctx.font = '10.5px "IBM Plex Sans", Arial, sans-serif'; ctx.fillStyle = C.muted; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  const sx = niceStep(x1 - x0, 8), dx = dec(sx); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let x = Math.ceil(x0 / sx) * sx; x <= x1 + 1e-9; x += sx) ctx.fillText(fmt(Math.abs(x) < 1e-12 ? 0 : x, dx), PX(x), y2 + 14);
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  const dot = (x, y, col, rr = 3.2) => { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(PX(x), y, rr, 0, 2 * Math.PI); ctx.fill(); };
+  ctx.globalAlpha = 0.85;
+  if (c.md === 'boot') {
+    ctx.fillStyle = C.muted; ctx.fillText('{{campione|sample}}', L - 6, y1); ctx.fillText('bootstrap', L - 6, y2);
+    for (const v of obs) dot(v, y1, C.strip);
+    if (cur) { const cnt = new Map(); for (const i of cur) { const m = cnt.get(i) || 0; cnt.set(i, m + 1); dot(obs[i], y2 + 4 - m * 5.5, C.bar, 2.8); } }
+    if (Number.isFinite(c.theta)) { ctx.globalAlpha = 1; ctx.strokeStyle = C.ink; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(PX(c.theta) + .5, 2); ctx.lineTo(PX(c.theta) + .5, y2 + 12); ctx.stroke(); ctx.setLineDash([]); }
+  } else {
+    ctx.fillStyle = C.muted; ctx.fillText('{{gruppo 1|group 1}}', L - 6, y1); ctx.fillText('{{gruppo 2|group 2}}', L - 6, y2);
+    const N = c.n1 + c.n2;
+    for (let p = 0; p < N; p++) { const src = curLab ? curLab[p] : p, row2 = p >= c.n1; dot(c.pool[src], row2 ? y2 : y1, src < c.n1 ? C.strip : C.curve); }
+  }
+  ctx.globalAlpha = 1;
+}
+function drawMain(a) {
+  const c = cfg, [ctx, w, h] = fit($('main'));
+  if (c.md === 'boot') {
+    // vera distribuzione campionaria: istogramma liscio con le stesse classi
+    const tv = new Float64Array(H.nb); for (const v of trueVals) { const b = Math.floor((v - H.x0) / H.w); if (b >= 0 && b < H.nb) tv[b]++; }
+    for (let i = 0; i < H.nb; i++) tv[i] /= trueVals.length * H.w;
+    if (!c.tvs) { const sm = new Float64Array(H.nb); for (let i = 0; i < H.nb; i++) { let s = 0, ww = 0; for (let j = -2; j <= 2; j++) if (i + j >= 0 && i + j < H.nb) { const q = 3 - Math.abs(j); s += q * tv[i + j]; ww += q; } sm[i] = s / ww; } c.tvs = sm; }
+    tv.set(c.tvs);
+    const A = drawHistDensity(ctx, w, h, H, { a, minTop: Math.max(...tv), xlab: STATNAME[c.stat],
+      before: A => { if (k > 1 && Number.isFinite(c.qlo)) { ctx.fillStyle = hexA(C.bar, 0.16); ctx.fillRect(A.PX(c.qlo), A.T, A.PX(c.qhi) - A.PX(c.qlo), A.ph); } } });
+    A.clip(); ctx.strokeStyle = C.curve; ctx.lineWidth = 2.2; ctx.beginPath();
+    for (let i = 0; i < H.nb; i++) { const x = A.PX(H.x0 + (i + 0.5) * H.w), y = A.PY(tv[i]); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); ctx.restore();
+    vline(ctx, A, c.est, C.strip, null, 2.2); if (Number.isFinite(c.theta)) vline(ctx, A, c.theta, C.ink, [5, 4], 1.6);
+    legend(ctx, A, [[C.bar, '{{distribuzione bootstrap|bootstrap distribution}}', 'box'], [C.curve, '{{distribuzione campionaria vera|true sampling distribution}}', 'line'], [C.strip, '{{stima osservata θ̂|observed estimate θ̂}}', 'line'], [C.ink, '{{vero valore θ|true value θ}}', 'dash']]);
+  } else if (c.md === 'perm') {
+    const e = Math.abs(c.est), A = drawHistDensity(ctx, w, h, H, { a, minTop: c.stat === 'mean' ? dnorm(0) / c.sdPerm : 0, xlab: '{{differenza|difference}}', barColor: x => Math.abs(x) >= e ? C.curve : C.bar });
+    if (c.stat === 'mean') { A.clip(); ctx.strokeStyle = C.ink; ctx.lineWidth = 1.8; curve(ctx, A, x => dnorm(x / c.sdPerm) / c.sdPerm, H.x0, H.x1); ctx.restore(); }
+    vline(ctx, A, c.est, C.strip, null, 2.2); vline(ctx, A, -c.est, C.strip, [5, 4], 1.6);
+    legend(ctx, A, [[C.strip, '{{differenza osservata|observed difference}}', 'line'], [C.curve, '{{almeno così estreme|at least as extreme}}', 'box']]);
+  } else {
+    const A = axes(ctx, w, h, { x0: 0, x1: M, y0: 0, y1: 1, yStep: 0.1, yFmt: y => fmt(100 * y, 0) + '%', xFmt: x => fmtn(x), xlab: '{{ripetizioni|repetitions}}' });
+    hline(ctx, A, Math.abs(c.delta) < 1e-12 ? c.alpha : c.pT, C.muted, [5, 4], 1.2);
+    A.clip();
+    for (const [idx, col] of [[1, C.strip], [2, C.curve]]) { ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath(); trace.forEach((t, i) => i ? ctx.lineTo(A.PX(t[0]), A.PY(t[idx])) : ctx.moveTo(A.PX(t[0]), A.PY(t[idx]))); ctx.stroke(); }
+    ctx.restore();
+    legend(ctx, A, [[C.strip, '{{test t|t test}}', 'line'], [C.curve, 'Wilcoxon-Mann-Whitney', 'line'], [C.muted, Math.abs(c.delta) < 1e-12 ? 'α' : '{{potenza teorica del t (dati normali)|theoretical t power (normal data)}}', 'dash']]);
+    // potenza al variare di δ
+    const [cx, w2, h2] = fit($('second')), dmax = Math.max(1.5, ...powPts.map(p => p.d * 1.15));
+    const B = axes(cx, w2, h2, { x0: 0, x1: dmax, y0: 0, y1: 1, yStep: 0.25, yFmt: y => fmt(y, 2), xlab: '|δ|' });
+    hline(cx, B, c.alpha, C.muted, [3, 3], 1);
+    B.clip(); cx.strokeStyle = C.ink; cx.lineWidth = 1.8; curve(cx, B, d => powerT(d, c.n1, c.n2, c.alpha), 0, dmax, 80); cx.restore();
+    for (const P of powPts) for (const [r, col, off] of [[P.t, C.strip, -3], [P.w, C.curve, 3]]) {
+      const se = Math.sqrt(r * (1 - r) / P.k), px = B.PX(P.d) + off; cx.strokeStyle = col; cx.fillStyle = col; cx.lineWidth = 1.5;
+      cx.beginPath(); cx.moveTo(px, B.PY(Math.min(1, r + 2 * se))); cx.lineTo(px, B.PY(Math.max(0, r - 2 * se))); cx.stroke();
+      cx.beginPath(); cx.arc(px, B.PY(r), 3.8, 0, 2 * Math.PI); cx.fill();
+    }
+    legend(cx, B, [[C.ink, '{{t, teorica (dati normali)|t, theoretical (normal data)}}', 'line'], [C.strip, '{{test t simulato|t test, simulated}}', 'pt'], [C.curve, '{{WMW simulato|WMW, simulated}}', 'pt']], true);
+  }
+}
+function draw(dt) {
+  if ($('run').hidden) return;
+  const a = reduce ? 1 : 1 - Math.exp(-dt / 0.09);
+  if (cfg.md !== 'power') drawStrip();
+  drawMain(a);
+}
+let prev = performance.now();
+function frame(now) {
+  const dt = Math.min(0.1, (now - prev) / 1000); prev = now;
+  if (completing) { const t0 = performance.now(); while (completing && performance.now() - t0 < 30) batch(nparz, true); updateText(); }
+  if (running) { acc += dt; const step = 1 / ups(); let c = 0; while (acc >= step && running && c < 4) { batch(nparz); acc -= step; c++; } }
+  draw(dt); requestAnimationFrame(frame);
+}
+
+// ================= comandi =================
+const T0 = $('title').textContent, S0 = $('subtitle').textContent;
+$('ok').onclick = () => {
+  try { configure(); } catch (e) { $('err').textContent = typeof e === 'string' ? e : '{{Errore nei valori scelti.|Error in the chosen values.}}'; console.error(e); return; }
+  $('err').textContent = ''; reset();
+  $('setup').hidden = true; $('run').hidden = false; window.scrollTo(0, 0);
+};
+$('back').onclick = () => { running = false; completing = false; $('run').hidden = true; $('setup').hidden = false; $('title').textContent = T0; $('subtitle').textContent = S0; };
+$('go').onclick = () => { if (k >= M) return; running = !running; acc = 1 / ups(); $('go').textContent = running ? '{{Pausa|Pause}}' : '{{Riprendi|Resume}}'; };
+$('all').onclick = () => { if (k >= M) return; running = false; completing = true; $('go').textContent = '{{Calcolo…|Computing…}}'; $('go').disabled = true; $('all').disabled = true; };
+$('reset').onclick = reset;
+$('newsample').onclick = () => { newObserved(); running = false; completing = false; $('go').textContent = '{{Avvia|Start}}'; $('go').disabled = false; $('all').disabled = false; updateText(); };
+$('speed').addEventListener('input', updateSpeedText);
+requestAnimationFrame(frame);
+window.__simul = { configure, reset, batch, ARE, powerT, wmxTable, wmxTest, tTest, get st() { return { cfg, k, hitT, hitW, cntExt, trueSE, powPts }; } };
+})();
+</script>
+@@TAIL@@
+</body>
+</html>

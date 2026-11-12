@@ -1,0 +1,87 @@
+<script>(()=>{const s=document.querySelector('.themesel'); if(!s||!window.simulTheme) return; const mark=()=>s.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.t===simulTheme.get()))); s.addEventListener('click',e=>{const b=e.target.closest('button'); if(b){simulTheme.set(b.dataset.t); mark();}}); mark();})();</script>
+<script>
+// salva un’immagine PNG con i grafici visibili disposti come sullo schermo, più titolo, parametri e tabelle dei risultati
+(() => {
+  const btn = document.getElementById('saveimg'); if (!btn) return;
+  const toast = msg => { const d = document.createElement('div'); d.className = 'toast'; d.setAttribute('role', 'status'); d.textContent = msg; document.body.appendChild(d); setTimeout(() => d.remove(), 4200); };
+  const visible = el => el && el.offsetParent !== null && el.getBoundingClientRect().width > 0;
+  btn.addEventListener('click', () => {
+    const ov = document.getElementById('ov');
+    const root = ov && !ov.hidden ? ov : (document.getElementById('run') || document.querySelector('.layout'));
+    if (!root || root.hidden) { toast('Run a simulation first: the results screen is what gets saved.'); return; }
+    const cvs = [...root.querySelectorAll('canvas')].filter(visible);
+    if (!cvs.length) { toast('There are no charts to save.'); return; }
+    // anche le finestre di testo e i titoli delle finestre, nella loro posizione
+    const pres = [...root.querySelectorAll('pre')].filter(visible), titles = [...root.querySelectorAll('.wtitle, .htitle')].filter(visible);
+    const R = [...cvs, ...pres, ...titles].map(c => c.getBoundingClientRect());
+    const x0 = Math.min(...R.map(r => r.left)), y0 = Math.min(...R.map(r => r.top)), x1 = Math.max(...R.map(r => r.right)), y1 = Math.max(...R.map(r => r.bottom));
+    const cs = getComputedStyle(document.documentElement), v = n => cs.getPropertyValue('--' + n).trim();
+    const bg = v('bg') || '#fff', ink = v('ink') || '#000', muted = v('muted') || '#666', rule = v('rule') || '#ccc';
+    // testi: titolo, parametri, e righe delle tabelle e dei riepiloghi visibili
+    const h1 = document.querySelector('#title') || document.querySelector('h1'), sub = document.querySelector('#subtitle') || document.querySelector('header p');
+    const lines = [];
+    ['count', 'eq', 'outside', 'ci', 'cov', 'ratio', 'chi'].forEach(id => { const e = document.getElementById(id); if (visible(e) && e.textContent.trim()) lines.push(e.textContent.trim()); });
+    // tabelle in colonne allineate: la prima a sinistra, le altre a destra
+    root.querySelectorAll('table').forEach(tb => { if (!visible(tb) || tb.closest('.freqwrap')) return;
+      const rows = [...tb.querySelectorAll('tr')].map(tr => [...tr.children].map(td => td.textContent.trim())).filter(c => c.some(Boolean)); if (!rows.length) return;
+      const nc = Math.max(...rows.map(r => r.length)), w = Array.from({ length: nc }, (_, j) => Math.max(...rows.map(r => (r[j] || '').length)));
+      lines.push(''); rows.forEach(r => lines.push(w.map((wj, j) => j ? (r[j] || '').padStart(wj) : (r[j] || '').padEnd(wj)).join('   '))); });
+    const s = 2, W = Math.max(x1 - x0, 760), pad = 24, headH = 74, lh = 18, footH = lines.length * lh + 46;
+    const out = document.createElement('canvas'); out.width = (W + 2 * pad) * s; out.height = (headH + (y1 - y0) + footH + pad) * s;
+    const ctx = out.getContext('2d'); ctx.scale(s, s);
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, out.width, out.height);
+    ctx.fillStyle = ink; ctx.font = '500 21px "IBM Plex Serif", Georgia, serif'; ctx.textBaseline = 'top';
+    ctx.fillText(h1 ? h1.textContent.trim() : document.title, pad, pad - 4, W);
+    ctx.fillStyle = muted; ctx.font = '13px "IBM Plex Sans", Arial, sans-serif';
+    if (sub) ctx.fillText(sub.textContent.trim(), pad, pad + 26, W);
+    ctx.strokeStyle = rule; ctx.beginPath(); ctx.moveTo(pad, headH - 6); ctx.lineTo(pad + W, headH - 6); ctx.stroke();
+    cvs.forEach((c, i) => { const r = R[i]; try { ctx.drawImage(c, pad + r.left - x0, headH + r.top - y0, r.width, r.height); } catch (e) {} });
+    pres.forEach((pe, i) => { const r = R[cvs.length + i], X = pad + r.left - x0, Y = headH + r.top - y0, ls = pe.textContent.replace(/\n+$/, '').split('\n'), n = Math.max(1, Math.floor((r.height - 12) / 15));
+      ctx.save(); ctx.beginPath(); ctx.rect(X, Y, r.width, r.height); ctx.clip(); ctx.fillStyle = v('textbg') || bg; ctx.fillRect(X, Y, r.width, r.height);
+      ctx.fillStyle = ink; ctx.font = '11.5px "IBM Plex Mono", Menlo, Consolas, monospace'; ctx.textBaseline = 'top';
+      const show = ls.length > n ? [...ls.slice(0, Math.min(14, n - 6)), '   …', ...ls.slice(-(n - Math.min(14, n - 6) - 1))] : ls;
+      show.forEach((l, j) => ctx.fillText(l, X + 10, Y + 8 + j * 15)); ctx.restore(); });
+    titles.forEach((el, i) => { const r = R[cvs.length + pres.length + i], c = el.cloneNode(true); c.querySelectorAll('.tabs, button').forEach(b => b.remove());
+      ctx.fillStyle = ink; ctx.font = '600 13px "IBM Plex Sans", Arial, sans-serif'; ctx.textBaseline = 'middle'; ctx.fillText(c.textContent.trim(), pad + r.left - x0 + 10, headH + r.top - y0 + r.height / 2, r.width - 20); ctx.textBaseline = 'top'; });
+    let y = headH + (y1 - y0) + 18;
+    ctx.fillStyle = ink; ctx.font = '12.5px "IBM Plex Mono", Menlo, Consolas, monospace';
+    lines.forEach(l => { ctx.fillText(l, pad, y, W); y += lh; });
+    const d = new Date(), p2 = n => String(n).padStart(2, '0');
+    ctx.fillStyle = muted; ctx.font = '11.5px "IBM Plex Sans", Arial, sans-serif';
+    ctx.fillText(`Simul2000 · Simulations in Statistics · ${d.toLocaleDateString('en-GB')} ${p2(d.getHours())}:${p2(d.getMinutes())}`, pad, y + 6);
+    const name = `simul2000_${(location.pathname.split('/').pop() || 'grafico').replace(/\.html?$/, '').replace(/^simul_/, '')}_${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}_${p2(d.getHours())}${p2(d.getMinutes())}.png`;
+    if (/claude/i.test(location.hostname)) { toast('Saving is not allowed in the claude.ai preview: it works when the pages are opened from the program folder.'); return; }
+    out.toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); toast('Image saved: ' + name); }, 'image/png');
+  });
+})();
+</script>
+<script>
+(() => { const ok = document.getElementById('ok'), top = document.getElementById('oktop'); if (!ok || !top) return;
+  top.textContent = ok.textContent.trim() + ' ▶';
+  top.addEventListener('click', () => { ok.click(); const e = document.getElementById('err'); if (e && e.textContent.trim() && !document.getElementById('setup').hidden) e.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+})();
+</script>
+<script>
+// nel quadro delle scelte il tasto Invio fa partire la simulazione, come «OK, alla simulazione»
+(() => { const s = document.getElementById('setup'), ok = document.getElementById('ok'); if (!s || !ok) return;
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.isComposing || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey || s.hidden) return;
+    const t = e.target; if (t && (t.tagName === 'BUTTON' || t.tagName === 'A' || t.tagName === 'SUMMARY')) return;
+    if (t && t !== document.body && !s.contains(t)) return;
+    e.preventDefault();
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) t.dispatchEvent(new Event('change', { bubbles: true }));
+    ok.click();
+  });
+})();
+</script>
+<script>
+// durante la simulazione il tasto Invio equivale al pulsante «Avvia» (o «Pausa», se la simulazione è in corso)
+(() => { const run = document.getElementById('run'), go = document.getElementById('go'); if (!run || !go) return;
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.defaultPrevented || e.isComposing || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey || run.hidden || go.disabled) return;
+    const ov = document.getElementById('ov'); if (ov && !ov.hidden) return;
+    const t = e.target; if (t && ['BUTTON', 'A', 'SELECT', 'TEXTAREA', 'SUMMARY'].includes(t.tagName)) return;
+    e.preventDefault(); go.click();
+  });
+})();
+</script>

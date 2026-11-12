@@ -36,11 +36,15 @@ Funziona anche senza connessione a internet: in quel caso il browser usa i suoi 
 | `simul_bivariate.html` | Simulazione di distribuzioni bivariate, con istogramma tridimensionale |
 | `simul_regressione_interattiva.html` | Regressione lineare interattiva |
 | `simul_massima_verosimiglianza.html` | Nuovo modulo: media e stimatore di massima verosimiglianza a confronto |
+| `simul_intervalli.html` | Inferenza: copertura degli intervalli di confidenza (media e proporzione), errori di I e II tipo, potenza dei test |
+| `simul_bayes.html` | Inferenza: aggiornamento bayesiano con prior coniugate (beta, normale, gamma), intervalli di credibilità e loro proprietà frequentiste |
+| `simul_nonparametrica.html` | Inferenza: bootstrap, test di permutazione, Wilcoxon-Mann-Whitney contro t |
 | `aiuto.html` | Guida generale del programma |
 | `aiuto_*.html` | Guida di ciascun modulo: che cosa mostra, come si usa, suggerimenti per la didattica, dettagli tecnici |
 | `simul2000_guida.html` | Testi della guida in linea originale (WinHelp), convertiti per il browser |
 | `helpsimul2003.pdf` | Il manuale del 2003, con le schermate della versione originale |
 | `en/` | La versione inglese di tutte le pagine, con gli stessi nomi di file |
+| `build/` | Sorgenti unici (italiano e inglese) dei tre moduli di inferenza e delle loro guide: dopo una modifica si rigenerano con `python3 build/build.py .` |
 
 ## Pubblicazione su GitHub Pages
 

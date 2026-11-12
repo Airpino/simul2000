@@ -136,6 +136,7 @@ button[aria-pressed="true"]:not(.sw):not(.primary),button[aria-selected="true"]:
 .topbar .helpbtn{margin-left:auto}
 .topbar .helpbtn + .savebtn{margin-left:0}
 </style>
+<style id="newmods">:root{--t13:#DCF0EC;--t14:#F3E8DC;--t15:#E3EAF2;--i13:#0E7C6B;--i14:#8B5A2B;--i15:#476A8A;}@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--t13:#17302B;--t14:#30261C;--t15:#1F2832;--i13:#63D3BF;--i14:#E0A872;--i15:#9FC1E0;}}:root[data-theme="dark"]{--t13:#17302B;--t14:#30261C;--t15:#1F2832;--i13:#63D3BF;--i14:#E0A872;--i15:#9FC1E0;}#inf a.tile b{padding-right:4.2rem}</style>
 </head>
 <body>
 <div class="wrap">
@@ -151,6 +152,9 @@ button[aria-pressed="true"]:not(.sw):not(.primary),button[aria-selected="true"]:
 
 <h2>Choose a module</h2>
 <nav class="grid" id="grid" aria-label="Modules"></nav>
+
+<h2>Inference</h2>
+<nav class="grid" id="inf" aria-label="Inference modules"></nav>
 
 <h2>New module</h2>
 <nav class="grid" id="extra" aria-label="New module"></nav>
@@ -188,6 +192,9 @@ const onClaude = /claude/i.test(location.hostname);
 const A = id => `https://claude.ai/artifact/${id}`;
 const svg = inner => `<svg viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
 const ICON = {
+  ic: svg('<path d="M33 3v38" stroke-dasharray="3 3" opacity=".6"/><path d="M14 8h30M20 15h28M8 22h22M18 29h26"/><path d="M38 36h20" stroke-width="2.8"/><g fill="currentColor" stroke="none"><circle cx="29" cy="8" r="2"/><circle cx="34" cy="15" r="2"/><circle cx="19" cy="22" r="2"/><circle cx="31" cy="29" r="2"/><circle cx="48" cy="36" r="2.4"/></g>'),
+  bay: svg('<path d="M6 40h52" opacity=".5"/><path d="M6 38c10-2 14-16 24-16s14 14 26 16" stroke-dasharray="3 3" opacity=".75"/><path d="M24 39c6-1 8-34 14-34s8 33 14 34" stroke-width="2.4"/>'),
+  np: svg('<path d="M6 40h52" opacity=".5"/><g fill="currentColor" stroke="none" opacity=".35"><rect x="9" y="34" width="6" height="6"/><rect x="17" y="29" width="6" height="11"/><rect x="25" y="24" width="6" height="16"/><rect x="33" y="19" width="6" height="21"/><rect x="41" y="14" width="6" height="26"/><rect x="49" y="9" width="6" height="31"/></g><path d="M10 6c8-4 16-4 22 2" /><path d="M32 8l-1-5M32 8l-5 0"/><g fill="currentColor" stroke="none"><circle cx="40" cy="5" r="2"/><circle cx="47" cy="5" r="2"/><circle cx="54" cy="5" r="2"/></g>'),
   univ: svg('<path d="M6 40h52" opacity=".5"/><rect x="12" y="28" width="6" height="12" fill="currentColor" stroke="none" opacity=".35"/><rect x="19" y="16" width="6" height="24" fill="currentColor" stroke="none" opacity=".35"/><rect x="26" y="9" width="6" height="31" fill="currentColor" stroke="none" opacity=".35"/><rect x="33" y="12" width="6" height="28" fill="currentColor" stroke="none" opacity=".35"/><rect x="40" y="24" width="6" height="16" fill="currentColor" stroke="none" opacity=".35"/><path d="M8 39c6-1 9-13 14-24s8-9 12-4 8 22 22 28"/>'),
   medie: svg('<path d="M6 40h52" opacity=".5"/><circle cx="12" cy="6" r="2" fill="currentColor"/><circle cx="20" cy="6" r="2" fill="currentColor"/><circle cx="40" cy="6" r="2" fill="currentColor"/><circle cx="52" cy="6" r="2" fill="currentColor"/><circle cx="31" cy="6" r="3.5" fill="currentColor" stroke="none"/><path d="M14 39c6-1 10-24 17-26s11 25 19 26"/>'),
   mc: svg('<rect x="8" y="4" width="48" height="36" opacity=".5"/><path d="M8 4c10 16 26 30 48 36"/><g fill="currentColor" stroke="none"><circle cx="16" cy="30" r="1.6"/><circle cx="26" cy="34" r="1.6"/><circle cx="40" cy="36" r="1.6"/><circle cx="34" cy="28" r="1.6"/><circle cx="22" cy="24" r="1.6" opacity=".45"/><circle cx="40" cy="12" r="1.6" opacity=".45"/><circle cx="50" cy="20" r="1.6" opacity=".45"/><circle cx="30" cy="10" r="1.6" opacity=".45"/></g>'),
@@ -215,6 +222,11 @@ const MODULES = [
 const EXTRA = [
   ['simul_massima_verosimiglianza.html', 'EjrEU9wHH1Xtau76yPDFzf', 'Mean and maximum likelihood', 'The module left unfinished in 2003: two estimators of location compared.', 'mv', 'new']
 ];
+const INF = [
+  ['simul_intervalli.html', null, 'Confidence intervals and tests', 'A hundred intervals one under the other: how many contain the true value? And how often a test is wrong.', 'ic', 'new'],
+  ['simul_bayes.html', null, 'Bayesian inference', 'Prior, likelihood and posterior updating with the data; coverage of credible intervals.', 'bay', 'new'],
+  ['simul_nonparametrica.html', null, 'Nonparametric inference', 'Bootstrap, permutation tests and the Wilcoxon-Mann-Whitney test against the t test.', 'np', 'new']
+];
 const MEMO = [
   ['../helpsimul2003.pdf', null, 'The 2003 manual (in Italian)', 'The original guide, with screenshots of every module and the teaching ideas behind them.', 'book'],
   ['simul2000_guida.html', 'C8i95QsW3D5SXxXMwKmGok', 'The original online help', 'The texts of the Simul2000 WinHelp file, recovered and converted for the browser.', 'help']
@@ -228,6 +240,7 @@ function tiles(list, box, start, offset) {
   }).join('');
 }
 tiles(MODULES, document.getElementById('grid'), 1, false);
+tiles(INF, document.getElementById('inf'), 13, true);
 tiles(EXTRA, document.getElementById('extra'), 10, true);
 tiles(MEMO, document.getElementById('memo'), 11, true);
 })();

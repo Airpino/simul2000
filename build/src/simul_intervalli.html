@@ -1,0 +1,460 @@
+@@THEME@@
+
+<title>{{Simul2000 · intervalli di confidenza e test|Simul2000 · confidence intervals and tests}}</title>
+@@CSS@@
+/* modulo intervalli e test */
+.modes{display:grid;grid-template-columns:1fr;gap:.25rem}
+#stack{height:min(52vh,27rem)}
+#runcov{height:12rem}
+#pow{height:13rem}
+.sw2{display:inline-block;width:.8rem;height:.8rem;border-radius:2px;vertical-align:-1px;margin-right:.3rem}
+td.lab{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+@@TOPBAR:simul_intervalli.html:aiuto_intervalli.html@@
+<header>
+  <h1 id="title">{{Intervalli di confidenza e test|Confidence intervals and tests}}</h1>
+  <p id="subtitle">{{Si ripete molte volte lo stesso esperimento: si vede che cosa vuol dire “confidenza al 95%”, e quante volte un test sbaglia.|The same experiment is repeated many times: you see what “95% confidence” means, and how often a test gets it wrong.}}</p>
+</header>
+
+<!-- ================= QUADRO DELLE SCELTE ================= -->
+<section id="setup" class="setup" aria-label="{{Scelte della simulazione|Simulation choices}}">
+  <div class="gotop" style="grid-column:1/-1"><button type="button" class="primary" id="oktop">OK ▶</button><span class="hint" style="margin:0">{{oppure modifica prima le scelte qui sotto|or change the choices below first}}</span></div>
+  <div class="stack">
+    <div class="panel">
+      <h2>{{Che cosa simulare|What to simulate}}</h2>
+      <div class="modes" id="modes" role="radiogroup" aria-label="{{Tipo di simulazione|Kind of simulation}}">
+        <label class="dist"><input type="radio" name="mode" value="ci_mean" checked> <span>{{Intervalli di confidenza per la media|Confidence intervals for a mean}}</span></label>
+        <label class="dist"><input type="radio" name="mode" value="ci_prop"> <span>{{Intervalli di confidenza per una proporzione|Confidence intervals for a proportion}}</span></label>
+        <label class="dist"><input type="radio" name="mode" value="test"> <span>{{Test sulla media: errori e potenza|Test on a mean: errors and power}}</span></label>
+      </div>
+    </div>
+    <div class="panel" id="poppanel">
+      <h2>{{Popolazione|Population}}</h2>
+      <div id="popmean">
+        <label class="f" for="shape">{{Forma della distribuzione|Shape of the distribution}}</label>
+        <select id="shape"></select>
+        <div class="row">
+          <div><label class="f" for="mu" id="mulab">{{Vera media μ|True mean μ}}</label><input type="number" id="mu" value="10" step="any"></div>
+          <div><label class="f" for="sigma">{{Scarto quadratico medio σ|Standard deviation σ}}</label><input type="number" id="sigma" value="2" step="any" min="0.0001"></div>
+        </div>
+      </div>
+      <div id="popprop" hidden>
+        <label class="f" for="pp">{{Vera proporzione p (probabilità di successo)|True proportion p (probability of success)}}</label><input type="number" id="pp" value="0.1" step="any" min="0.001" max="0.999">
+        <p class="hint">{{Con p vicino a 0 o a 1 e n piccolo l’intervallo “di Wald” copre molto meno del dichiarato.|With p near 0 or 1 and small n the “Wald” interval covers much less than it claims.}}</p>
+      </div>
+    </div>
+    <div class="panel" id="testpanel" hidden>
+      <h2>{{Il test|The test}}</h2>
+      <div class="row">
+        <div><label class="f" for="mu0">{{Ipotesi nulla H₀: μ =|Null hypothesis H₀: μ =}}</label><input type="number" id="mu0" value="10" step="any"></div>
+        <div><label class="f" for="alt">{{Ipotesi alternativa H₁|Alternative hypothesis H₁}}</label>
+          <select id="alt"><option value="two">μ ≠ μ₀</option><option value="greater">μ &gt; μ₀</option><option value="less">μ &lt; μ₀</option></select></div>
+      </div>
+      <div class="row">
+        <div><label class="f" for="ttype">{{Statistica test|Test statistic}}</label>
+          <select id="ttype"><option value="t">{{t di Student (σ stimata con s)|Student’s t (σ estimated by s)}}</option><option value="z">{{z (σ nota)|z (σ known)}}</option></select></div>
+        <div><label class="f" for="alpha">{{Livello di significatività α|Significance level α}}</label>
+          <select id="alpha"><option value="0.01">0,01</option><option value="0.05" selected>0,05</option><option value="0.1">0,10</option></select></div>
+      </div>
+      <p class="hint">{{Con la vera media uguale a μ₀ si misura l’errore di I tipo; con una vera media diversa, la potenza. I risultati delle simulazioni successive restano sul grafico della potenza finché non si cambiano n, σ, μ₀, il test o la forma.|With the true mean equal to μ₀ you measure the type I error; with a different true mean, the power. Results of successive runs stay on the power chart until you change n, σ, μ₀, the test or the shape.}}</p>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="panel">
+      <h2>{{Campioni|Samples}}</h2>
+      <div class="row">
+        <div><label class="f" for="nel">{{Elementi per campione (n)|Elements per sample (n)}}</label><input type="number" id="nel" value="10" min="2" max="1000" step="1"></div>
+        <div><label class="f" for="m">{{Numero di campioni (m)|Number of samples (m)}}</label>
+          <select id="m"><option value="100">100</option><option value="1000" selected>1.000</option><option value="10000">10.000</option><option value="100000">100.000</option></select></div>
+      </div>
+      <div class="row">
+        <div><label class="f" for="nparz">{{Aggiorna ogni (campioni)|Update every (samples)}}</label><input type="number" id="nparz" value="1" min="1" step="1"></div>
+        <div id="confbox"><label class="f" for="conf">{{Livello di confidenza|Confidence level}}</label>
+          <select id="conf"><option value="0.8">80%</option><option value="0.9">90%</option><option value="0.95" selected>95%</option><option value="0.99">99%</option></select></div>
+      </div>
+      <div id="methbox">
+        <label class="f" for="meth">{{Come si costruisce l’intervallo|How the interval is built}}</label>
+        <select id="meth"></select>
+      </div>
+      <p class="hint">{{Con “aggiorna ogni 1” e una velocità bassa si vede nascere ogni intervallo.|With “update every 1” and a low speed you see each interval appear.}}</p>
+    </div>
+    @@SEED@@
+    @@COLORS@@
+  </div>
+
+  <div style="grid-column:1/-1">
+    <p class="err" id="err" role="alert"></p>
+    <div class="go"><button class="primary" id="ok">{{OK, alla simulazione|OK, to the simulation}}</button></div>
+  </div>
+</section>
+
+<!-- ================= QUADRO DELLA SIMULAZIONE ================= -->
+<section id="run" class="run" hidden aria-label="{{Simulazione|Simulation}}">
+  <div class="maincol">
+    <section class="panel chart">
+      <div class="chart-head">
+        <div class="countbox"><span class="count" id="count"></span><div class="progress" aria-hidden="true"><i id="bar"></i></div></div>
+        <span class="note" id="outside"></span>
+      </div>
+      <div class="caption" id="cap1"></div>
+      <canvas id="stack" role="img" aria-label="{{Grafico principale|Main chart}}"></canvas>
+    </section>
+    <section class="panel chart" style="margin-top:1rem">
+      <div class="caption" id="cap2"></div>
+      <canvas id="runcov" role="img" aria-label="{{Secondo grafico|Second chart}}"></canvas>
+    </section>
+    <p class="foot" id="foot" style="margin-top:.8rem"></p>
+  </div>
+
+  <div class="side">
+    <section class="panel" aria-label="{{Comandi|Controls}}">
+      <div class="buttons">
+        <button class="primary" id="go">{{Avvia|Start}}</button>
+        <button id="all">{{Completa|Complete}}</button>
+        <button id="reset">{{Ricomincia|Restart}}</button>
+        <button id="back">{{Scelte|Choices}}</button>
+      </div>
+      <label class="f" for="speed">{{Velocità|Speed}}</label>
+      <input type="range" id="speed" min="1" max="60" value="10">
+      <div class="speedval" id="speedval"></div>
+    </section>
+    <section class="panel" id="powpanel" hidden>
+      <h2 style="margin-bottom:.3rem">{{Funzione di potenza|Power function}}</h2>
+      <div class="caption" id="powcap" style="padding:0 0 .3rem"></div>
+      <canvas id="pow" role="img" aria-label="{{Funzione di potenza teorica e valori simulati|Theoretical power function and simulated values}}"></canvas>
+    </section>
+    <section class="panel">
+      <h2 id="tabtitle">{{Risultati|Results}}</h2>
+      <table><tbody id="tab"></tbody></table>
+      <p class="foot" id="tabnote" style="margin-top:.7rem"></p>
+    </section>
+  </div>
+</section>
+</div>
+
+<script>
+(() => {
+'use strict';
+@@CORE@@
+
+const SH = SHAPES.filter(s => !s.noMoments);
+SH.forEach((s, i) => { const o = document.createElement('option'); o.value = i; o.textContent = s.name; $('shape').appendChild(o); });
+const METH = {
+  ci_mean: [['t', '{{t di Student: x̄ ± t·s/√n (quello giusto)|Student’s t: x̄ ± t·s/√n (the right one)}}'], ['zs', '{{normale con σ stimata: x̄ ± z·s/√n|normal with σ estimated: x̄ ± z·s/√n}}'], ['zk', '{{normale con σ nota: x̄ ± z·σ/√n|normal with σ known: x̄ ± z·σ/√n}}']],
+  ci_prop: [['wald', '{{di Wald: p̂ ± z·√(p̂(1−p̂)/n)|Wald: p̂ ± z·√(p̂(1−p̂)/n)}}'], ['wilson', '{{di Wilson (score)|Wilson (score)}}'], ['cp', '{{di Clopper-Pearson (“esatto”)|Clopper-Pearson (“exact”)}}']]
+};
+const mode = () => document.querySelector('input[name=mode]:checked').value;
+function syncSetup() {
+  const md = mode();
+  document.querySelectorAll('#modes .dist').forEach(l => l.classList.toggle('on', l.querySelector('input').checked));
+  $('popmean').hidden = md === 'ci_prop'; $('popprop').hidden = md !== 'ci_prop';
+  $('testpanel').hidden = md !== 'test'; $('confbox').hidden = md === 'test'; $('methbox').hidden = md === 'test';
+  if (md === 'test' && +$('nparz').value === 1) $('nparz').value = 10;
+  $('mulab').textContent = md === 'test' ? '{{Vera media μ (quella dei dati)|True mean μ (that of the data)}}' : '{{Vera media μ|True mean μ}}';
+  if (md !== 'test') {
+    const keep = $('meth').value;
+    $('meth').innerHTML = METH[md].map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
+    if (METH[md].some(x => x[0] === keep)) $('meth').value = keep;
+  }
+}
+document.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener('change', syncSetup));
+$('newseed').onclick = () => { $('seed').value = 1 + Math.floor(Math.random() * 2147483645); };
+syncSetup(); initColors();
+
+// ================= stato =================
+let cfg, k, M, tstep, nparz, running = false, completing = false, acc = 0;
+let hit, missL, missR, sumLen, ring, trace, rej;
+const NSHOW = 100;
+let Hs, Hp;          // istogrammi della statistica test e dei p-value
+let powPts = [], powKey = '';
+let propCI = null, exactCov = NaN;
+
+function configure() {
+  const md = mode(), c = { md };
+  c.n = readNum('nel', 2, 1000, '{{Elementi per campione|Elements per sample}}', true);
+  M = +$('m').value;
+  if (c.n * M > 5e7) throw '{{n × m supera 50 milioni di numeri: riduci n o il numero di campioni.|n × m exceeds 50 million numbers: reduce n or the number of samples.}}';
+  tstep = Math.max(1, Math.round(M / 2000));
+  let q = Math.max(1, Math.min(M, Math.round(num('nparz')) || 1)); while (M % q) q--; nparz = q; $('nparz').value = q;
+  if (md === 'ci_prop') {
+    c.p = readNum('pp', 0.001, 0.999, '{{Vera proporzione|True proportion}}');
+  } else {
+    c.shape = SH[+$('shape').value]; c.mu = readNum('mu', -1e6, 1e6, '{{Vera media|True mean}}'); c.sigma = readNum('sigma', 1e-6, 1e6, '{{Scarto quadratico medio|Standard deviation}}');
+  }
+  if (md === 'test') {
+    c.mu0 = readNum('mu0', -1e6, 1e6, 'μ₀'); c.alt = $('alt').value; c.tt = $('ttype').value; c.alpha = +$('alpha').value;
+    c.se = c.sigma / Math.sqrt(c.n); c.delta = (c.mu - c.mu0) / c.se; c.df = c.n - 1;
+    const q1 = c.alt === 'two' ? 1 - c.alpha / 2 : 1 - c.alpha;
+    c.crit = c.tt === 't' ? qt(q1, c.df) : qnorm(q1);
+    c.nullDens = c.tt === 't' ? (x => dt(x, c.df)) : dnorm;
+    const lo = Math.min(-4.5, c.delta - 4.5), hi = Math.max(4.5, c.delta + 4.5);
+    Hs = makeHist(Math.floor(lo), Math.ceil(hi), Math.round((Math.ceil(hi) - Math.floor(lo)) * 5));
+    Hp = makeHist(0, 1, 20);
+    c.power = power(c, c.mu);
+    const key = [c.n, c.sigma, c.mu0, c.alt, c.tt, c.alpha, c.shape.id].join('|');
+    if (key !== powKey) { powPts = []; powKey = key; }
+  } else {
+    c.conf = +$('conf').value; c.meth = $('meth').value; c.z = qnorm(1 - (1 - c.conf) / 2);
+    c.tq = qt(1 - (1 - c.conf) / 2, c.n - 1);
+    if (md === 'ci_prop') {
+      propCI = propIntervals(c); exactCov = 0;
+      for (let s = 0; s <= c.n; s++) if (propCI.lo[s] <= c.p && c.p <= propCI.hi[s]) exactCov += Math.exp(lbinom(c.n, s) + s * Math.log(c.p) + (c.n - s) * Math.log(1 - c.p));
+      c.theta = c.p; const sd = Math.sqrt(c.p * (1 - c.p) / c.n);
+      c.x0 = Math.max(0, c.p - Math.max(0.05, 4.5 * sd)); c.x1 = Math.min(1, c.p + Math.max(0.05, 4.5 * sd));
+    } else {
+      c.theta = c.mu; const hw = c.sigma / Math.sqrt(c.n) * Math.min(Math.max(c.tq, c.z) * 1.7, 9);
+      c.x0 = c.mu - hw; c.x1 = c.mu + hw;
+    }
+  }
+  cfg = c; setTexts();
+}
+const lbinom = (n, s) => lgamma(n + 1) - lgamma(s + 1) - lgamma(n - s + 1);
+// intervalli per la proporzione: dipendono solo dal numero di successi s, quindi si calcolano una volta per tutti gli s
+function propIntervals(c) {
+  const n = c.n, z = c.z, lo = new Float64Array(n + 1), hi = new Float64Array(n + 1), a = 1 - c.conf;
+  for (let s = 0; s <= n; s++) {
+    const ph = s / n;
+    if (c.meth === 'wald') { const h = z * Math.sqrt(ph * (1 - ph) / n); lo[s] = ph - h; hi[s] = ph + h; }
+    else if (c.meth === 'wilson') { const z2 = z * z, d = 1 + z2 / n, ctr = (ph + z2 / (2 * n)) / d, h = z * Math.sqrt(ph * (1 - ph) / n + z2 / (4 * n * n)) / d; lo[s] = ctr - h; hi[s] = ctr + h; }
+    else { lo[s] = s === 0 ? 0 : qbeta(a / 2, s, n - s + 1); hi[s] = s === n ? 1 : qbeta(1 - a / 2, s + 1, n - s); }
+  }
+  return { lo, hi };
+}
+// potenza teorica, per dati normali: con z è esplicita; con t si integra sulla distribuzione di s
+function power(c, mu) {
+  const d = (mu - c.mu0) / c.se, k = c.crit;
+  const rejGiven = f => c.alt === 'two' ? pnorm(-k * f - d) + 1 - pnorm(k * f - d) : c.alt === 'greater' ? 1 - pnorm(k * f - d) : pnorm(-k * f - d);
+  if (c.tt === 'z') return rejGiven(1);
+  // V = (n−1)s²/σ² ~ chi²(ν); con u = √V la densità di u è 2u·f(u²), finita anche per ν = 1
+  const nu = c.df, U = Math.sqrt(nu + 12 * Math.sqrt(2 * nu) + 40), N = 600, h = U / N;
+  const lc = Math.log(2) - (nu / 2) * Math.log(2) - lgamma(nu / 2);
+  let s = 0;
+  for (let i = 0; i <= N; i++) {
+    const u = i * h, f = u === 0 ? (nu === 1 ? Math.exp(lc) : 0) : Math.exp(lc + (nu - 1) * Math.log(u) - u * u / 2);
+    const w = i === 0 || i === N ? 1 : i % 2 ? 4 : 2;
+    s += w * f * rejGiven(u / Math.sqrt(nu));
+  }
+  return Math.min(1, s * h / 3);
+}
+function setTexts() {
+  const c = cfg, md = c.md;
+  const sname = c.shape ? c.shape.name.replace(/ \(.*\)$/, '') : '';
+  if (md === 'ci_mean') {
+    $('title').textContent = `{{Intervalli per la media|Intervals for the mean}}: ${sname}, μ = ${fmtp(c.mu)}, σ = ${fmtp(c.sigma)}`;
+    $('subtitle').textContent = `${fmtn(M)} {{campioni di|samples of}} ${c.n} {{elementi; intervalli al|elements; intervals at}} ${Math.round(100 * c.conf)}% ${METH.ci_mean.find(x => x[0] === c.meth)[1].replace(/:.*$/, '').replace(/ \(.*\)$/, '')}.`;
+  } else if (md === 'ci_prop') {
+    $('title').textContent = `{{Intervalli per una proporzione|Intervals for a proportion}}: p = ${fmtp(c.p)}`;
+    $('subtitle').textContent = `${fmtn(M)} {{campioni di|samples of}} ${c.n} {{prove; intervalli al|trials; intervals at}} ${Math.round(100 * c.conf)}% ${METH.ci_prop.find(x => x[0] === c.meth)[1].replace(/:.*$/, '')}.`;
+  } else {
+    const altS = { two: '≠', greater: '>', less: '<' }[c.alt];
+    $('title').textContent = `{{Test|Test}} ${c.tt === 't' ? 't' : 'z'}: H₀: μ = ${fmtp(c.mu0)} {{contro|against}} H₁: μ ${altS} ${fmtp(c.mu0)}`;
+    $('subtitle').textContent = `${fmtn(M)} {{campioni di|samples of}} ${c.n} {{elementi da una|elements from a}} ${sname} {{con|with}} μ = ${fmtp(c.mu)}, σ = ${fmtp(c.sigma)}; α = ${fmtp(c.alpha)}.`;
+  }
+  $('powpanel').hidden = md !== 'test';
+  if (md === 'test') {
+    $('cap1').textContent = `{{Distribuzione simulata della statistica test, con la sua distribuzione sotto H₀ (curva). La zona colorata è la regione di rifiuto: le barre che vi cadono sono i rifiuti di H₀.|Simulated distribution of the test statistic, with its distribution under H₀ (curve). The shaded zone is the rejection region: bars falling there are rejections of H₀.}}`;
+    $('cap2').textContent = `{{Distribuzione dei p-value. Se H₀ è vera è uniforme (linea tratteggiata): ogni intervallo di p-value ha la stessa probabilità. Le barre a sinistra di α sono i rifiuti.|Distribution of the p-values. If H₀ is true it is uniform (dashed line): every range of p-values is equally likely. Bars to the left of α are rejections.}}`;
+    $('powcap').textContent = `{{Curva: potenza teorica per dati normali. Punti: rifiuti simulati, con ±2 errori standard.|Curve: theoretical power for normal data. Points: simulated rejections, with ±2 standard errors.}}`;
+    $('foot').textContent = c.tt === 't'
+      ? '{{La statistica è t = (x̄ − μ₀)/(s/√n), con n − 1 gradi di libertà. Con dati non normali e n piccolo la vera probabilità di errore di I tipo può allontanarsi da α: lo si vede con la lognormale.|The statistic is t = (x̄ − μ₀)/(s/√n), with n − 1 degrees of freedom. With non-normal data and small n the true type I error rate can move away from α: try the lognormal.}}'
+      : '{{La statistica è z = (x̄ − μ₀)/(σ/√n), con σ nota. La potenza teorica è esatta per dati normali, approssimata negli altri casi.|The statistic is z = (x̄ − μ₀)/(σ/√n), with σ known. The theoretical power is exact for normal data and approximate otherwise.}}';
+  } else {
+    $('cap1').textContent = `{{Gli ultimi|The last}} ${NSHOW} {{intervalli, il più recente in alto. La linea tratteggiata è il vero valore.|intervals, newest at the top. The dashed line is the true value.}}`;
+    $('cap2').textContent = `{{Percentuale di intervalli che contengono il vero valore, al crescere del numero di campioni. La fascia è il livello nominale ± 2 errori standard: se l’intervallo è “onesto” la linea ci resta dentro quasi sempre.|Percentage of intervals that contain the true value, as the number of samples grows. The band is the nominal level ± 2 standard errors: if the interval is “honest” the line stays inside it almost always.}}`;
+    $('foot').textContent = md === 'ci_prop'
+      ? '{{Per una proporzione la copertura esatta si può calcolare sommando le probabilità binomiali dei numeri di successi per cui l’intervallo contiene p: oscilla al variare di p e di n, e per l’intervallo di Wald resta spesso molto sotto il livello dichiarato.|For a proportion the exact coverage can be computed by adding the binomial probabilities of the numbers of successes for which the interval contains p: it oscillates as p and n change, and for the Wald interval it is often well below the stated level.}}'
+      : '{{Il livello di confidenza è una proprietà del metodo, non del singolo intervallo: un intervallo già calcolato o contiene μ o non la contiene. Al 95%, a lungo andare circa 95 intervalli su 100 la contengono.|The confidence level is a property of the method, not of a single interval: an interval already computed either contains μ or it does not. At 95%, in the long run about 95 intervals in 100 contain it.}}';
+  }
+}
+function reset() {
+  setSeed(num('seed') || 1);
+  k = 0; hit = missL = missR = 0; sumLen = 0; rej = 0; ring = []; trace = [];
+  if (cfg.md === 'test') { histReset(Hs); histReset(Hp); }
+  running = false; completing = false; acc = 0;
+  $('go').textContent = '{{Avvia|Start}}'; $('go').disabled = false; $('all').disabled = false;
+  updateText(); updateSpeedText();
+}
+function batch(q, quiet) {
+  q = Math.min(q, M - k); const c = cfg, n = c.n;
+  for (let j = 0; j < q; j++) {
+    if (c.md === 'ci_prop') {
+      let s = 0; for (let i = 0; i < n; i++) if (unif() < c.p) s++;
+      const lo = propCI.lo[s], hi = propCI.hi[s]; record(lo, hi, s / n);
+    } else {
+      let s = 0, ss = 0; const r = c.shape.r;
+      for (let i = 0; i < n; i++) { const x = c.mu + c.sigma * r(); s += x; ss += x * x; }
+      const xm = s / n, sd = Math.sqrt(Math.max(0, (ss - n * xm * xm) / (n - 1)));
+      if (c.md === 'test') {
+        const st = (xm - c.mu0) / ((c.tt === 't' ? sd : c.sigma) / Math.sqrt(n));
+        const F = c.tt === 't' ? pt(st, c.df) : pnorm(st);
+        const p = c.alt === 'two' ? 2 * Math.min(F, 1 - F) : c.alt === 'greater' ? 1 - F : F;
+        if (p <= c.alpha) rej++;
+        histAdd(Hs, st); histAdd(Hp, Math.min(p, 1));
+      } else {
+        const h = c.meth === 't' ? c.tq * sd / Math.sqrt(n) : c.meth === 'zs' ? c.z * sd / Math.sqrt(n) : c.z * c.sigma / Math.sqrt(n);
+        record(xm - h, xm + h, xm);
+      }
+    }
+    k++;
+    if (c.md !== 'test' && (k % tstep === 0 || k === M)) trace.push([k, hit / k]);
+  }
+  if (c.md === 'test') {
+    const i = powPts.findIndex(p => p.mu === c.mu); const pt0 = { mu: c.mu, r: rej / k, k };
+    if (i >= 0) powPts[i] = pt0; else powPts.push(pt0);
+  }
+  if (k >= M) { running = false; completing = false; $('go').textContent = '{{Fatto|Done}}'; $('go').disabled = true; $('all').disabled = true; }
+  if (!quiet) updateText();
+}
+function record(lo, hi, est) {
+  const th = cfg.theta, ok = lo <= th && th <= hi;
+  if (ok) hit++; else if (hi < th) missL++; else missR++;
+  sumLen += hi - lo;
+  ring.push({ lo, hi, est, ok }); if (ring.length > NSHOW) ring.shift();
+}
+function row(lab, a, b) { return `<tr><td class="lab">${lab}</td><td>${a}</td>${b !== undefined ? `<td>${b}</td>` : ''}</tr>`; }
+function updateText() {
+  const c = cfg;
+  $('count').textContent = `${fmtn(k)} {{campioni su|samples out of}} ${fmtn(M)}`;
+  $('bar').style.width = (100 * k / M) + '%';
+  $('outside').textContent = '';
+  let h = '';
+  if (c.md === 'test') {
+    const isNull = c.mu === c.mu0, lab = isNull ? '{{Errore di I tipo (rifiuto di H₀ vera)|Type I error (rejecting a true H₀)}}' : '{{Potenza (rifiuto di H₀ falsa)|Power (rejecting a false H₀)}}';
+    $('tabtitle').textContent = lab;
+    const r = k ? rej / k : NaN, se = k ? Math.sqrt(r * (1 - r) / k) : NaN;
+    h += `<tr><th></th><th>{{simulato|simulated}}</th><th>{{teorico|theoretical}}</th></tr>`;
+    h += row('{{Rifiuti di H₀|Rejections of H₀}}', fmtpct(r), fmtpct(isNull ? c.alpha : c.power));
+    h += row('{{Errore standard Monte Carlo|Monte Carlo standard error}}', fmtpct(se, 2), '');
+    if (!isNull) h += row('{{Errore di II tipo (accetto H₀ falsa)|Type II error (accepting a false H₀)}}', fmtpct(1 - r), fmtpct(1 - c.power));
+    h += row('{{Spostamento standardizzato δ = (μ − μ₀)/(σ/√n)|Standardised shift δ = (μ − μ₀)/(σ/√n)}}', fmt(c.delta, 3), '');
+    h += row('{{Valore critico|Critical value}}', fmt(c.crit, 3), '');
+    $('tabnote').textContent = c.shape.id === 'norm' ? '' : '{{I valori teorici valgono per dati normali: con questa forma sono solo un’approssimazione.|The theoretical values hold for normal data: with this shape they are only an approximation.}}';
+  } else {
+    $('tabtitle').textContent = '{{Copertura degli intervalli|Coverage of the intervals}}';
+    const cov = k ? hit / k : NaN;
+    let theo = NaN, theoLab = '';
+    if (c.md === 'ci_prop') { theo = exactCov; theoLab = '{{esatta (binomiale)|exact (binomial)}}'; }
+    else if (c.meth === 'zs') { theo = 2 * pt(c.z, c.n - 1) - 1; theoLab = '{{per dati normali|for normal data}}'; }
+    else { theo = c.conf; theoLab = c.shape.id === 'norm' ? '{{esatta|exact}}' : '{{per dati normali|for normal data}}'; }
+    h += row('{{Livello nominale|Nominal level}}', fmtpct(c.conf, 0));
+    h += row(`{{Copertura teorica|Theoretical coverage}} (${theoLab})`, fmtpct(theo, 2));
+    h += row('{{Copertura simulata|Simulated coverage}}', `<span class="big">${fmtpct(cov)}</span>`);
+    h += row('{{Intervalli che contengono il vero valore|Intervals containing the true value}}', `${fmtn(hit)} / ${fmtn(k)}`);
+    h += row('<span class="sw2" style="background:var(--err)"></span>{{Mancati: tutto sotto il vero valore|Missed: entirely below the true value}}', fmtn(missL));
+    h += row('<span class="sw2" style="background:var(--err)"></span>{{Mancati: tutto sopra il vero valore|Missed: entirely above the true value}}', fmtn(missR));
+    h += row('{{Lunghezza media|Mean length}}', k ? fmt(sumLen / k, 4) : '–');
+    if (c.md === 'ci_mean' && c.meth === 'zk') h += row('{{Lunghezza (fissa) 2zσ/√n|Length (fixed) 2zσ/√n}}', fmt(2 * c.z * c.sigma / Math.sqrt(c.n), 4));
+    $('tabnote').textContent = (c.md === 'ci_mean' && c.shape.id !== 'norm' && c.shape.id !== 'unif') ? '{{Con una distribuzione asimmetrica gli intervalli mancano il vero valore più spesso da una parte che dall’altra: guarda le due righe dei mancati.|With a skewed distribution the intervals miss the true value more often on one side than the other: look at the two “missed” rows.}}' : '';
+  }
+  $('tab').innerHTML = h;
+}
+const ups = () => +$('speed').value;
+function updateSpeedText() { const secs = Math.ceil(M / nparz) / ups(); $('speedval').textContent = `${ups()} {{aggiornamenti al secondo · circa|updates per second · about}} ${secs < 1 ? '{{meno di 1|less than 1}}' : fmtn(Math.round(secs))} {{s in tutto|s in all}}`; }
+
+// ================= disegno =================
+function drawStack() {
+  const [ctx, w, h] = fit($('stack')), c = cfg;
+  const A = axes(ctx, w, h, { x0: c.x0, x1: c.x1, y0: 0, y1: NSHOW, noY: true, L: 14, xlab: c.md === 'ci_prop' ? 'p' : 'μ' });
+  A.clip();
+  const dy = A.ph / NSHOW, lw = Math.max(1, Math.min(3, dy * 0.55));
+  for (let i = 0; i < ring.length; i++) {
+    const I = ring[ring.length - 1 - i], y = A.T + (i + 0.5) * dy;
+    ctx.strokeStyle = I.ok ? C.strip : C.curve; ctx.fillStyle = ctx.strokeStyle; ctx.lineWidth = I.ok ? lw : lw + 0.6;
+    ctx.globalAlpha = i === 0 ? 1 : I.ok ? 0.75 : 1;
+    let x0 = A.PX(I.lo), x1 = A.PX(I.hi); if (x1 - x0 < 4) { const m = (x0 + x1) / 2; x0 = m - 2; x1 = m + 2; } // intervalli di lunghezza nulla: un trattino
+    ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+    if (dy > 3) { ctx.beginPath(); ctx.arc(A.PX(I.est), y, Math.min(3, dy * 0.45), 0, 2 * Math.PI); ctx.fill(); }
+  }
+  ctx.globalAlpha = 1; ctx.restore();
+  vline(ctx, A, c.theta, C.ink, [5, 4], 1.5);
+  legend(ctx, A, [[C.strip, '{{contiene il vero valore|contains the true value}}', 'line'], [C.curve, '{{non lo contiene|misses it}}', 'line']]);
+  if (ring.length) { ctx.fillStyle = C.ink; ctx.font = '600 11px "IBM Plex Sans", Arial, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('▸', 2, A.T + dy / 2); }
+}
+function drawTrace() {
+  const [ctx, w, h] = fit($('runcov')), c = cfg;
+  const lo = Math.max(0, Math.min(c.conf - 0.15, ...trace.slice(-400).map(t => t[1]))), y0 = Math.floor(lo * 20) / 20;
+  const A = axes(ctx, w, h, { x0: 0, x1: M, y0, y1: 1, xFmt: x => fmtn(x), yFmt: y => fmt(100 * y, 0) + '%', xlab: '{{campioni|samples}}' });
+  A.clip();
+  // fascia: livello nominale ± 2 errori standard di una proporzione su k prove
+  ctx.fillStyle = hexA(C.strip, 0.13); ctx.beginPath();
+  const N = 200; for (let j = 0; j <= N; j++) { const kk = Math.max(1, M * j / N), s = 2 * Math.sqrt(c.conf * (1 - c.conf) / kk); const x = A.PX(kk), y = A.PY(Math.min(1, c.conf + s)); j ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+  for (let j = N; j >= 0; j--) { const kk = Math.max(1, M * j / N), s = 2 * Math.sqrt(c.conf * (1 - c.conf) / kk); ctx.lineTo(A.PX(kk), A.PY(Math.max(0, c.conf - s))); }
+  ctx.fill(); ctx.restore();
+  hline(ctx, A, c.conf, C.muted, [5, 4], 1.2);
+  A.clip(); ctx.strokeStyle = C.curve; ctx.lineWidth = 2; ctx.beginPath();
+  const step = Math.max(1, Math.floor(trace.length / 1500));
+  for (let i = 0; i < trace.length; i += step) { const [kk, r] = trace[i]; i ? ctx.lineTo(A.PX(kk), A.PY(r)) : ctx.moveTo(A.PX(kk), A.PY(r)); }
+  if (trace.length) { const [kk, r] = trace[trace.length - 1]; ctx.lineTo(A.PX(kk), A.PY(r)); }
+  ctx.stroke(); ctx.restore();
+}
+function drawTest(a) {
+  const c = cfg;
+  { // statistica test
+    const [ctx, w, h] = fit($('stack'));
+    const top = Math.max(...Array.from({ length: 200 }, (_, j) => c.nullDens(Hs.x0 + (Hs.x1 - Hs.x0) * j / 199)));
+    const inRej = x => c.alt === 'two' ? Math.abs(x) >= c.crit : c.alt === 'greater' ? x >= c.crit : x <= -c.crit;
+    const A = drawHistDensity(ctx, w, h, Hs, { a, minTop: top, xlab: c.tt === 't' ? 't' : 'z',
+      barColor: x => inRej(x) ? C.curve : C.bar,
+      before: A => { ctx.fillStyle = hexA(C.curve, 0.10);
+        const z0 = A.PX(-c.crit), z1 = A.PX(c.crit);
+        if (c.alt !== 'greater') ctx.fillRect(A.L, A.T, Math.max(0, z0 - A.L), A.ph);
+        if (c.alt !== 'less') ctx.fillRect(z1, A.T, Math.max(0, A.L + A.pw - z1), A.ph); } });
+    A.clip(); ctx.strokeStyle = C.ink; ctx.lineWidth = 2; curve(ctx, A, c.nullDens, Hs.x0, Hs.x1); ctx.restore();
+    legend(ctx, A, [[C.ink, '{{distribuzione sotto H₀|distribution under H₀}}', 'line'], [C.curve, '{{rifiuto di H₀|reject H₀}}', 'box'], [C.bar, '{{accetto H₀|accept H₀}}', 'box']]);
+  }
+  { // p-value
+    const [ctx, w, h] = fit($('runcov'));
+    const A = drawHistDensity(ctx, w, h, Hp, { a, minTop: 1.3, xlab: 'p-value', xStep: 0.1, barColor: x => x < c.alpha ? C.curve : C.bar });
+    hline(ctx, A, 1, C.ink, [5, 4], 1.2); vline(ctx, A, c.alpha, C.curve, null, 1.5);
+  }
+  { // funzione di potenza
+    const [ctx, w, h] = fit($('pow'));
+    const span = c.se * Math.max(4, Math.abs(c.delta) + 1.5), x0 = c.mu0 - span, x1 = c.mu0 + span;
+    const A = axes(ctx, w, h, { x0, x1, y0: 0, y1: 1, small: true, yStep: 0.25, yFmt: y => fmt(y, 2), xlab: 'μ' });
+    hline(ctx, A, c.alpha, C.muted, [3, 3], 1);
+    A.clip(); ctx.strokeStyle = C.ink; ctx.lineWidth = 1.8; curve(ctx, A, x => power(c, x), x0, x1, 120); ctx.restore();
+    vline(ctx, A, c.mu0, C.muted, [2, 3], 1);
+    for (const P of powPts) {
+      const se = Math.sqrt(P.r * (1 - P.r) / P.k), px = A.PX(P.mu); if (px < A.L || px > A.L + A.pw) continue;
+      ctx.strokeStyle = C.curve; ctx.fillStyle = C.curve; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(px, A.PY(Math.min(1, P.r + 2 * se))); ctx.lineTo(px, A.PY(Math.max(0, P.r - 2 * se))); ctx.stroke();
+      ctx.beginPath(); ctx.arc(px, A.PY(P.r), P.mu === c.mu ? 4.5 : 3.5, 0, 2 * Math.PI); ctx.fill();
+    }
+  }
+}
+function draw(dt) {
+  if ($('run').hidden) return;
+  const a = reduce ? 1 : 1 - Math.exp(-dt / 0.09);
+  if (cfg.md === 'test') drawTest(a); else { drawStack(); drawTrace(); }
+}
+let prev = performance.now();
+function frame(now) {
+  const dt = Math.min(0.1, (now - prev) / 1000); prev = now;
+  if (completing) { const t0 = performance.now(), chunk = Math.max(1, Math.ceil(20000 / cfg.n)); while (completing && performance.now() - t0 < 30) batch(chunk, true); updateText(); }
+  if (running) { acc += dt; const step = 1 / ups(); let c = 0; while (acc >= step && running && c < 4) { batch(nparz); acc -= step; c++; } }
+  draw(dt); requestAnimationFrame(frame);
+}
+
+// ================= comandi =================
+const T0 = $('title').textContent, S0 = $('subtitle').textContent;
+$('ok').onclick = () => {
+  try { configure(); } catch (e) { $('err').textContent = typeof e === 'string' ? e : '{{Errore nei valori scelti.|Error in the chosen values.}}'; console.error(e); return; }
+  $('err').textContent = ''; reset();
+  $('setup').hidden = true; $('run').hidden = false; window.scrollTo(0, 0);
+};
+$('back').onclick = () => { running = false; completing = false; $('run').hidden = true; $('setup').hidden = false; $('title').textContent = T0; $('subtitle').textContent = S0; };
+$('go').onclick = () => { if (k >= M) return; running = !running; acc = 1 / ups(); $('go').textContent = running ? '{{Pausa|Pause}}' : '{{Riprendi|Resume}}'; };
+$('all').onclick = () => { if (k >= M) return; running = false; completing = true; $('go').textContent = '{{Calcolo…|Computing…}}'; $('go').disabled = true; $('all').disabled = true; };
+$('reset').onclick = reset;
+$('speed').addEventListener('input', updateSpeedText);
+requestAnimationFrame(frame);
+window.__simul = { configure, reset, batch, power, propIntervals, get st() { return { cfg, k, hit, rej, missL, missR, exactCov, powPts }; } };
+})();
+</script>
+@@TAIL@@
+</body>
+</html>

@@ -1,0 +1,59 @@
+@@THEME@@
+<title>{{Simul2000 · Guida: Intervalli di confidenza e test|Simul2000 · Help: Confidence intervals and tests}}</title>
+@@HELP@@
+<body>
+<div class="wrap">
+@@HELPTOP:aiuto_intervalli.html@@
+<div class="layout">
+@@TOC:aiuto_intervalli.html:mostra={{Che cosa mostra|What it shows}}:uso={{Come si usa|How to use it}}:didattica={{Suggerimenti per la didattica|Teaching suggestions}}:tecnica={{Dettagli tecnici|Technical details}}@@
+<article>
+<a class="backmod" id="backmod" href="simul_intervalli.html">{{← Torna al modulo|← Back to the module}}</a>
+<p class="kicker">{{Guida del modulo|Module help}}</p>
+<h1>@@ICON:ic:--i13@@{{Intervalli di confidenza e test|Confidence intervals and tests}}</h1>
+<p class="lede">{{Lo stesso esperimento ripetuto molte volte rende visibili due idee che a lezione restano astratte: che cosa vuol dire “confidenza al 95%”, e con che frequenza un test rifiuta un’ipotesi vera o accetta un’ipotesi falsa.|The same experiment repeated many times makes two ideas visible that tend to stay abstract in class: what “95% confidence” means, and how often a test rejects a true hypothesis or accepts a false one.}}</p>
+
+<h2 id="mostra">{{Che cosa mostra|What it shows}}</h2>
+<p>{{Il modulo ha tre esperimenti.|The module has three experiments.}}</p>
+<ul>
+<li><b>{{Intervalli di confidenza per la media.|Confidence intervals for a mean.}}</b> {{Da una popolazione di forma scelta (normale, uniforme, esponenziale, lognormale, Laplace, t di Student) si estraggono m campioni di n elementi; per ognuno si calcola l’intervallo di confidenza per μ. Gli ultimi cento intervalli compaiono uno sotto l’altro, accanto alla vera media: quelli che la mancano sono evidenziati. Sotto, la percentuale di intervalli che contengono μ si avvicina, o non si avvicina, al livello dichiarato.|From a population of a chosen shape (normal, uniform, exponential, lognormal, Laplace, Student’s t) m samples of n elements are drawn, and for each one the confidence interval for μ is computed. The last hundred intervals appear one under the other, next to the true mean: those that miss it are highlighted. Below, the percentage of intervals that contain μ approaches, or fails to approach, the stated level.}}</li>
+<li><b>{{Intervalli per una proporzione.|Intervals for a proportion.}}</b> {{Lo stesso, con dati 0/1 e tre metodi: Wald, Wilson e Clopper-Pearson. La copertura esatta si calcola sommando probabilità binomiali, e si confronta con quella simulata.|The same, with 0/1 data and three methods: Wald, Wilson and Clopper-Pearson. The exact coverage is computed by adding binomial probabilities, and compared with the simulated one.}}</li>
+<li><b>{{Test sulla media: errori e potenza.|Test on a mean: errors and power.}}</b> {{Si sceglie H₀: μ = μ₀ e si generano i dati con una vera media μ, uguale o diversa da μ₀. Si vede la distribuzione della statistica test con la sua regione di rifiuto, la distribuzione dei p-value e la percentuale di rifiuti, cioè l’errore di I tipo se μ = μ₀ e la potenza se μ ≠ μ₀. I risultati delle simulazioni successive si accumulano sulla curva di potenza teorica.|You choose H₀: μ = μ₀ and generate the data with a true mean μ, equal to μ₀ or not. You see the distribution of the test statistic with its rejection region, the distribution of the p-values and the percentage of rejections, that is the type I error if μ = μ₀ and the power if μ ≠ μ₀. Results of successive runs accumulate on the theoretical power curve.}}</li>
+</ul>
+
+<h2 id="uso">{{Come si usa|How to use it}}</h2>
+<h3>{{Il quadro delle scelte|The choices screen}}</h3>
+<ul>
+<li><b>{{Che cosa simulare|What to simulate}}</b>: {{uno dei tre esperimenti.|one of the three experiments.}}</li>
+<li><b>{{Popolazione|Population}}</b>: {{la forma della distribuzione, la vera media μ e lo scarto quadratico medio σ; per le proporzioni, la vera proporzione p. Tutte le forme sono riportate alla stessa media e allo stesso σ, così cambia solo la forma.|the shape of the distribution, the true mean μ and the standard deviation σ; for proportions, the true proportion p. All shapes are rescaled to the same mean and σ, so only the shape changes.}}</li>
+<li><b>{{Il test|The test}}</b>: μ₀, {{ipotesi alternativa bilaterale o unilaterale, statistica t (σ stimata) oppure z (σ nota), livello α.|a two-sided or one-sided alternative, the t statistic (σ estimated) or z (σ known), level α.}}</li>
+<li><b>{{Campioni|Samples}}</b>: n {{da 2 a 1.000, numero di campioni m, ogni quanti campioni aggiornare i grafici, livello di confidenza e metodo dell’intervallo.|from 2 to 1,000, number of samples m, how many samples between chart updates, confidence level and interval method.}}</li>
+</ul>
+<h3>{{Durante la simulazione|During the simulation}}</h3>
+<ul>
+<li>{{Con “aggiorna ogni 1” e velocità bassa si vede comparire ogni intervallo; “Completa” arriva subito alla fine.|With “update every 1” and a low speed you see each interval appear; “Complete” jumps straight to the end.}}</li>
+<li>{{La tabella separa gli intervalli che mancano il vero valore “da sotto” e “da sopra”: con popolazioni asimmetriche i due numeri sono molto diversi.|The table separates intervals that miss the true value “from below” and “from above”: with skewed populations the two numbers are very different.}}</li>
+<li>{{Nel test, la curva di potenza resta finché non si cambiano n, σ, μ₀, il test, α o la forma: cambiando solo la vera media μ e ripetendo si costruisce la curva per punti.|In the test, the power curve persists until you change n, σ, μ₀, the test, α or the shape: by changing only the true mean μ and repeating, you build the curve point by point.}}</li>
+</ul>
+
+<h2 id="didattica">{{Suggerimenti per la didattica|Teaching suggestions}}</h2>
+<div class="tip"><h3>{{Che cosa vuol dire 95%|What 95% means}}</h3><p>{{Con la normale e l’intervallo t, far partire la simulazione lentamente e chiedere agli studenti di contare i segmenti evidenziati negli ultimi cento: circa cinque. Poi chiedere: “la probabilità che questo intervallo contenga μ è 95%?”. La risposta giusta (no: lo contiene o non lo contiene) nasce da sola guardando il grafico.|With the normal and the t interval, start the simulation slowly and ask students to count the highlighted segments among the last hundred: about five. Then ask: “is the probability that this interval contains μ 95%?”. The right answer (no: it either contains it or not) emerges by itself from the chart.}}</p></div>
+<div class="tip"><h3>{{Perché t e non z|Why t and not z}}</h3><p>{{Con n = 5 confrontare l’intervallo t con quello “normale con σ stimata”: il secondo copre circa l’88% invece del 95%. Al crescere di n la differenza sparisce.|With n = 5 compare the t interval with the “normal with σ estimated” one: the latter covers about 88% instead of 95%. As n grows the difference disappears.}}</p></div>
+<div class="tip"><h3>{{Il teorema limite centrale non arriva subito|The central limit theorem does not arrive at once}}</h3><p>{{Con la lognormale e n = 10 l’intervallo t copre meno del dichiarato, e quasi tutti gli intervalli sbagliati stanno sotto il vero valore. Con n = 100 va meglio, ma non del tutto.|With the lognormal and n = 10 the t interval covers less than stated, and nearly all the wrong intervals lie below the true value. With n = 100 it improves, but not completely.}}</p></div>
+<div class="tip"><h3>{{L’intervallo di Wald è un cattivo intervallo|The Wald interval is a poor interval}}</h3><p>{{Con p = 0,1 e n = 10 l’intervallo di Wald al 95% copre il 65% delle volte; quello di Wilson circa il 93%. Provare anche p = 0,5 con n = 40 e poi p = 0,48: la copertura esatta oscilla, e non migliora in modo regolare al crescere di n.|With p = 0.1 and n = 10 the 95% Wald interval covers 65% of the time; Wilson’s about 93%. Also try p = 0.5 with n = 40 and then p = 0.48: the exact coverage oscillates, and does not improve steadily as n grows.}}</p></div>
+<div class="tip"><h3>{{I p-value sotto H₀ sono uniformi|p-values under H₀ are uniform}}</h3><p>{{Con μ = μ₀ l’istogramma dei p-value è piatto: un p-value di 0,03 non è “raro” in sé, capita il 3% delle volte. Poi spostare μ: l’istogramma si accumula vicino a zero, tanto più quanto più grande è n.|With μ = μ₀ the histogram of the p-values is flat: a p-value of 0.03 is not “rare” in itself, it happens 3% of the time. Then move μ: the histogram piles up near zero, the more so the larger n is.}}</p></div>
+<div class="tip"><h3>{{Costruire la curva di potenza|Building the power curve}}</h3><p>{{Fissati n = 10, σ = 2, μ₀ = 10, ripetere il test con μ = 10; 10,5; 11; 11,5; 12: i punti simulati si posano sulla curva teorica. Poi raddoppiare n e confrontare.|With n = 10, σ = 2, μ₀ = 10 fixed, repeat the test with μ = 10, 10.5, 11, 11.5, 12: the simulated points settle on the theoretical curve. Then double n and compare.}}</p></div>
+
+<h2 id="tecnica">{{Dettagli tecnici|Technical details}}</h2>
+<p>{{Intervalli per la media:|Intervals for the mean:}}</p>
+<div class="formula">x̄ ± t<sub>n−1; 1−α/2</sub> · s/√n &nbsp; · &nbsp; x̄ ± z<sub>1−α/2</sub> · s/√n &nbsp; · &nbsp; x̄ ± z<sub>1−α/2</sub> · σ/√n</div>
+<p>{{Per dati normali la copertura del secondo è esattamente 2F<sub>t; n−1</sub>(z) − 1. Intervalli per una proporzione, con p̂ = s/n:|For normal data the coverage of the second is exactly 2F<sub>t; n−1</sub>(z) − 1. Intervals for a proportion, with p̂ = s/n:}}</p>
+<div class="formula">{{Wald|Wald}}: p̂ ± z√(p̂(1−p̂)/n) &nbsp; · &nbsp; Wilson: [p̂ + z²/2n ± z√(p̂(1−p̂)/n + z²/4n²)] / (1 + z²/n) &nbsp; · &nbsp; Clopper-Pearson: {{quantili|quantiles}} Beta(s, n−s+1) {{e|and}} Beta(s+1, n−s)</div>
+<p>{{La copertura esatta è Σ P(S = s) per gli s il cui intervallo contiene p, con S binomiale. Nel test, la potenza teorica del test z è esplicita; quella del test t si ottiene integrando la probabilità di rifiuto condizionata a s sulla distribuzione χ² di (n−1)s²/σ², cioè con la t non centrale: entrambe valgono per dati normali. I numeri casuali sono generati con il generatore congruenziale moltiplicativo comune a tutti i moduli; ogni forma è standardizzata a media 0 e varianza 1 e poi riportata a μ e σ.|The exact coverage is Σ P(S = s) over the s whose interval contains p, with S binomial. In the test, the theoretical power of the z test is explicit; that of the t test is obtained by integrating the rejection probability conditional on s over the χ² distribution of (n−1)s²/σ², that is with the noncentral t: both hold for normal data. Random numbers are generated with the multiplicative congruential generator shared by all modules; each shape is standardised to mean 0 and variance 1 and then rescaled to μ and σ.}}</p>
+
+<footer>{{Simul2000 · Simulazioni in Statistica · modulo aggiunto nel 2026 al programma di Marcello Chiodi|Simul2000 · Simulations in Statistics · module added in 2026 to Marcello Chiodi’s program}}</footer>
+</article>
+</div>
+</div>
+@@HELPTAIL@@
+</body>
+</html>

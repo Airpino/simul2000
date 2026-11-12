@@ -1,0 +1,1 @@
+<script>(()=>{const s=document.querySelector('.themesel'); if(!s||!window.simulTheme) return; const mark=()=>s.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.t===simulTheme.get()))); s.addEventListener('click',e=>{const b=e.target.closest('button'); if(b){simulTheme.set(b.dataset.t); mark();}}); mark();})();</script>

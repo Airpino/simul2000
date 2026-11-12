@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>
+// tema dello sfondo: automatico (come il sistema), chiaro o scuro; la scelta vale per tutte le pagine di Simul2000.
+// Le pagine chiedono il tema con matchMedia('(prefers-color-scheme: dark)'): qui la risposta tiene conto della scelta fatta
+(() => {
+  const KEY = 'simul2000-tema'; let pref = 'auto';
+  try { pref = localStorage.getItem(KEY) || 'auto'; } catch (e) {}
+  const real = window.matchMedia.bind(window), sys = real('(prefers-color-scheme: dark)'), listeners = new Set();
+  const dark = () => pref === 'dark' || (pref === 'auto' && sys.matches);
+  const apply = () => { const r = document.documentElement; if (pref === 'auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', pref); };
+  const notify = () => { const ev = { matches: dark(), media: '(prefers-color-scheme: dark)' }; listeners.forEach(f => { try { f(ev); } catch (e) {} }); };
+  const fake = { media: '(prefers-color-scheme: dark)', onchange: null, get matches() { return dark(); },
+    addEventListener: (t, f) => listeners.add(f), removeEventListener: (t, f) => listeners.delete(f), addListener: f => listeners.add(f), removeListener: f => listeners.delete(f), dispatchEvent: () => true };
+  sys.addEventListener('change', () => { if (pref === 'auto') notify(); });
+  window.matchMedia = q => (/prefers-color-scheme:\s*dark/.test(q) ? fake : real(q));
+  window.simulTheme = { get: () => pref, set(v) { pref = v; try { localStorage.setItem(KEY, v); } catch (e) {} apply(); notify(); } };
+  apply();
+})();
+</script>

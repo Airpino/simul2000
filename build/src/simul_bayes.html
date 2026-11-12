@@ -1,0 +1,410 @@
+@@THEME@@
+
+<title>{{Simul2000 · inferenza bayesiana|Simul2000 · Bayesian inference}}</title>
+@@CSS@@
+/* modulo bayesiano */
+.modes{display:grid;grid-template-columns:1fr;gap:.25rem}
+#dens{height:min(48vh,25rem)}
+#traj{height:13rem}
+#reph{height:13rem}
+td.lab{color:var(--muted)}
+.formula{font-family:"IBM Plex Serif",Georgia,serif;font-size:1rem;text-align:center;margin:.6rem 0 .2rem}
+.repbar{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;margin:0 0 .6rem}
+.presets{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.6rem}
+.presets button{font-size:.85rem;padding:.35rem .6rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+@@TOPBAR:simul_bayes.html:aiuto_bayes.html@@
+<header>
+  <h1 id="title">{{Inferenza bayesiana|Bayesian inference}}</h1>
+  <p id="subtitle">{{Una distribuzione a priori si aggiorna con i dati, un’osservazione alla volta: si vede come prior e verosimiglianza si combinano, e quanto spesso gli intervalli di credibilità contengono il vero valore.|A prior distribution is updated with the data, one observation at a time: you see how prior and likelihood combine, and how often credible intervals contain the true value.}}</p>
+</header>
+
+<!-- ================= QUADRO DELLE SCELTE ================= -->
+<section id="setup" class="setup" aria-label="{{Scelte della simulazione|Simulation choices}}">
+  <div class="gotop" style="grid-column:1/-1"><button type="button" class="primary" id="oktop">OK ▶</button><span class="hint" style="margin:0">{{oppure modifica prima le scelte qui sotto|or change the choices below first}}</span></div>
+  <div class="stack">
+    <div class="panel">
+      <h2>{{Modello|Model}}</h2>
+      <div class="modes" id="modes" role="radiogroup" aria-label="{{Modello|Model}}">
+        <label class="dist"><input type="radio" name="model" value="beta" checked> <span>{{Proporzione θ: dati 0/1, prior beta|Proportion θ: 0/1 data, beta prior}}</span></label>
+        <label class="dist"><input type="radio" name="model" value="normal"> <span>{{Media θ di una normale con σ nota, prior normale|Mean θ of a normal with known σ, normal prior}}</span></label>
+        <label class="dist"><input type="radio" name="model" value="gamma"> <span>{{Tasso θ di una Poisson (conteggi), prior gamma|Rate θ of a Poisson (counts), gamma prior}}</span></label>
+      </div>
+      <div class="row">
+        <div><label class="f" for="theta">{{Vero valore di θ (quello che genera i dati)|True value of θ (the one generating the data)}}</label><input type="number" id="theta" value="0.3" step="any"></div>
+        <div id="sigbox" hidden><label class="f" for="sigma">{{σ dei dati (nota)|σ of the data (known)}}</label><input type="number" id="sigma" value="1" step="any" min="0.0001"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>{{Distribuzione a priori|Prior distribution}}</h2>
+      <div class="row">
+        <div><label class="f" for="m0">{{Media a priori m₀|Prior mean m₀}}</label><input type="number" id="m0" value="0.5" step="any"></div>
+        <div><label class="f" for="n0">{{Peso a priori n₀ (osservazioni equivalenti)|Prior weight n₀ (equivalent observations)}}</label><input type="number" id="n0" value="2" step="any" min="0"></div>
+      </div>
+      <div class="presets">
+        <button type="button" data-p="vague">{{Poco informativa|Vague}}</button>
+        <button type="button" data-p="good">{{Informativa e giusta|Informative and right}}</button>
+        <button type="button" data-p="bad">{{Informativa e sbagliata|Informative and wrong}}</button>
+      </div>
+      <p class="hint" id="priorhint"></p>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="panel">
+      <h2>{{Dati|Data}}</h2>
+      <div class="row">
+        <div><label class="f" for="nobs">{{Osservazioni in tutto (N)|Total observations (N)}}</label><input type="number" id="nobs" value="100" min="1" max="5000" step="1"></div>
+        <div><label class="f" for="nstep">{{Aggiorna ogni (osservazioni)|Update every (observations)}}</label><input type="number" id="nstep" value="1" min="1" step="1"></div>
+      </div>
+      <div class="row">
+        <div><label class="f" for="conf">{{Livello degli intervalli|Level of the intervals}}</label>
+          <select id="conf"><option value="0.8">80%</option><option value="0.9">90%</option><option value="0.95" selected>95%</option><option value="0.99">99%</option></select></div>
+        <div><label class="f" for="mrep">{{Ripetizioni dell’esperimento|Repetitions of the experiment}}</label>
+          <select id="mrep"><option value="1000">1.000</option><option value="10000" selected>10.000</option></select></div>
+      </div>
+      <p class="hint">{{Le ripetizioni servono, a esperimento finito, per vedere le proprietà “frequentiste” della stima bayesiana: copertura degli intervalli ed errore quadratico medio.|Repetitions are used, once the experiment is over, to see the “frequentist” properties of the Bayesian estimate: coverage of the intervals and mean squared error.}}</p>
+    </div>
+    @@SEED@@
+    @@COLORS@@
+  </div>
+
+  <div style="grid-column:1/-1">
+    <p class="err" id="err" role="alert"></p>
+    <div class="go"><button class="primary" id="ok">{{OK, alla simulazione|OK, to the simulation}}</button></div>
+  </div>
+</section>
+
+<!-- ================= QUADRO DELLA SIMULAZIONE ================= -->
+<section id="run" class="run" hidden aria-label="{{Simulazione|Simulation}}">
+  <div class="maincol">
+    <section class="panel chart">
+      <div class="chart-head">
+        <div class="countbox"><span class="count" id="count"></span><div class="progress" aria-hidden="true"><i id="bar"></i></div></div>
+        <span class="note" id="datanote"></span>
+      </div>
+      <div class="caption">{{Prior, verosimiglianza (normalizzata) e posterior di θ. La zona colorata è l’intervallo di credibilità; la linea tratteggiata è il vero valore.|Prior, (normalised) likelihood and posterior of θ. The shaded zone is the credible interval; the dashed line is the true value.}}</div>
+      <canvas id="dens" role="img" aria-label="{{Densità a priori, verosimiglianza e densità a posteriori|Prior density, likelihood and posterior density}}"></canvas>
+    </section>
+    <section class="panel chart" style="margin-top:1rem">
+      <div class="caption">{{Come cambiano le stime al crescere di n: media a posteriori con il suo intervallo di credibilità (fascia) e stima di massima verosimiglianza. A sinistra pesa la prior, a destra i dati.|How the estimates change as n grows: posterior mean with its credible interval (band) and maximum likelihood estimate. On the left the prior weighs more, on the right the data.}}</div>
+      <canvas id="traj" role="img" aria-label="{{Traiettoria delle stime al crescere del numero di osservazioni|Path of the estimates as the number of observations grows}}"></canvas>
+    </section>
+    <section class="panel chart" style="margin-top:1rem" id="reppanel">
+      <div class="repbar"><button type="button" id="rep" class="primary">{{Ripeti l’esperimento|Repeat the experiment}}</button><span class="note" id="repnote"></span></div>
+      <div id="repbox" hidden>
+        <div class="caption">{{Distribuzione, nelle ripetizioni, della media a posteriori (barre) e della stima di massima verosimiglianza (linea). La prior tira la media a posteriori verso m₀: meno variabilità, un po’ di distorsione.|Distribution, over the repetitions, of the posterior mean (bars) and of the maximum likelihood estimate (line). The prior pulls the posterior mean towards m₀: less variability, some bias.}}</div>
+        <canvas id="reph" role="img" aria-label="{{Distribuzione delle stime nelle ripetizioni|Distribution of the estimates over the repetitions}}"></canvas>
+        <table style="margin-top:.6rem"><thead><tr><th></th><th>{{bayesiano|Bayesian}}</th><th>{{frequentista|frequentist}}</th></tr></thead><tbody id="reptab"></tbody></table>
+      </div>
+    </section>
+    <p class="foot" id="foot" style="margin-top:.8rem"></p>
+  </div>
+
+  <div class="side">
+    <section class="panel" aria-label="{{Comandi|Controls}}">
+      <div class="buttons">
+        <button class="primary" id="go">{{Avvia|Start}}</button>
+        <button id="all">{{Completa|Complete}}</button>
+        <button id="reset">{{Ricomincia|Restart}}</button>
+        <button id="back">{{Scelte|Choices}}</button>
+      </div>
+      <label class="f" for="speed">{{Velocità|Speed}}</label>
+      <input type="range" id="speed" min="1" max="60" value="8">
+      <div class="speedval" id="speedval"></div>
+      <label class="check"><input type="checkbox" id="showlik" checked> {{Verosimiglianza|Likelihood}}</label>
+      <label class="check"><input type="checkbox" id="showprior" checked> {{Distribuzione a priori|Prior distribution}}</label>
+    </section>
+    <section class="panel">
+      <h2>{{Stime dopo n osservazioni|Estimates after n observations}}</h2>
+      <table><tbody id="tab"></tbody></table>
+      <div class="formula" id="formula"></div>
+      <p class="foot" id="tabnote" style="margin-top:.4rem"></p>
+    </section>
+  </div>
+</section>
+</div>
+
+<script>
+(() => {
+'use strict';
+@@CORE@@
+
+const model = () => document.querySelector('input[name=model]:checked').value;
+const DEF = { beta: { theta: 0.3, m0: 0.5, n0: 2, N: 100 }, normal: { theta: 1, m0: 0, n0: 1, N: 50 }, gamma: { theta: 4, m0: 2, n0: 1, N: 50 } };
+let lastModel = 'beta';
+function syncSetup(changed) {
+  const md = model();
+  document.querySelectorAll('#modes .dist').forEach(l => l.classList.toggle('on', l.querySelector('input').checked));
+  $('sigbox').hidden = md !== 'normal';
+  if (changed && md !== lastModel) { const d = DEF[md]; $('theta').value = d.theta; $('m0').value = d.m0; $('n0').value = d.n0; $('nobs').value = d.N; }
+  lastModel = md; priorHint();
+}
+function priorHint() {
+  const md = model(), m0 = num('m0'), n0 = num('n0'), sg = num('sigma');
+  let t = '';
+  if (md === 'beta') t = `{{Prior|Prior}} Beta(α = m₀·n₀ = ${fmtp(m0 * n0)}, β = (1 − m₀)·n₀ = ${fmtp((1 - m0) * n0)}). {{Con m₀ = 0,5 e n₀ = 2 è la uniforme.|With m₀ = 0.5 and n₀ = 2 it is the uniform.}}`;
+  else if (md === 'normal') t = n0 > 0 ? `{{Prior|Prior}} N(m₀ = ${fmtp(m0)}, τ² = σ²/n₀ = ${fmtp(sg * sg / n0)}). {{Con n₀ = 0 la prior è piatta (impropria).|With n₀ = 0 the prior is flat (improper).}}` : '{{Con n₀ = 0 la prior è piatta (impropria): la posterior coincide con la verosimiglianza normalizzata.|With n₀ = 0 the prior is flat (improper): the posterior coincides with the normalised likelihood.}}';
+  else t = `{{Prior|Prior}} Gamma({{forma|shape}} a = m₀·n₀ = ${fmtp(m0 * n0)}, {{tasso|rate}} b = n₀ = ${fmtp(n0)}).`;
+  $('priorhint').textContent = t;
+}
+document.querySelectorAll('input[name=model]').forEach(r => r.addEventListener('change', () => syncSetup(true)));
+['m0', 'n0', 'sigma'].forEach(id => $(id).addEventListener('input', priorHint));
+document.querySelectorAll('.presets button').forEach(b => b.onclick = () => {
+  const md = model(), th = num('theta'), sg = num('sigma') || 1;
+  if (!Number.isFinite(th)) return;
+  if (b.dataset.p === 'vague') { if (md === 'beta') { $('m0').value = 0.5; $('n0').value = 2; } else if (md === 'normal') { $('m0').value = 0; $('n0').value = 0.01; } else { $('m0').value = 1; $('n0').value = 0.01; } }
+  else if (b.dataset.p === 'good') { $('m0').value = th; $('n0').value = 20; }
+  else { $('n0').value = 20; $('m0').value = md === 'beta' ? +(th > 0.5 ? th - 0.35 : th + 0.35).toFixed(3) : md === 'normal' ? +(th + 2 * sg).toFixed(3) : +(th * 3).toFixed(3); }
+  priorHint();
+});
+$('newseed').onclick = () => { $('seed').value = 1 + Math.floor(Math.random() * 2147483645); };
+syncSetup(false); initColors();
+
+// ================= modello coniugato =================
+// statistica sufficiente S = somma dei dati; la posterior dipende solo da (n, S)
+function post(c, n, S) {
+  if (c.md === 'beta') { const a = c.a + S, b = c.b + n - S; return { kind: 'beta', a, b, mean: a / (a + b), sd: Math.sqrt(a * b / ((a + b) ** 2 * (a + b + 1))) }; }
+  if (c.md === 'normal') { const w = c.n0 + n; if (w <= 0) return null; const m = (c.n0 * c.m0 + S) / w, sd = c.sigma / Math.sqrt(w); return { kind: 'norm', m, s: sd, mean: m, sd }; }
+  const a = c.a + S, b = c.b + n; if (a <= 0 || b <= 0) return null; return { kind: 'gamma', a, b, mean: a / b, sd: Math.sqrt(a) / b };
+}
+function dens(P, x) { return !P ? NaN : P.kind === 'beta' ? dbeta(x, P.a, P.b) : P.kind === 'norm' ? dnorm((x - P.m) / P.s) / P.s : dgamma(x, P.a, P.b); }
+function quant(P, p) { return P.kind === 'beta' ? qbeta(p, P.a, P.b) : P.kind === 'norm' ? P.m + P.s * qnorm(p) : qgamma(p, P.a, P.b); }
+// verosimiglianza normalizzata: è la posterior con prior piatta
+function lik(c, n, S) {
+  if (n === 0) return null;
+  if (c.md === 'beta') return { kind: 'beta', a: S + 1, b: n - S + 1 };
+  if (c.md === 'normal') return { kind: 'norm', m: S / n, s: c.sigma / Math.sqrt(n) };
+  return { kind: 'gamma', a: S + 1, b: n };
+}
+function rObs(c) { return c.md === 'beta' ? (unif() < c.theta ? 1 : 0) : c.md === 'normal' ? c.theta + c.sigma * rnorm() : rpois(c.theta); }
+function freqCI(c, n, S) {
+  const xb = S / n, z = c.z;
+  const h = c.md === 'beta' ? z * Math.sqrt(xb * (1 - xb) / n) : c.md === 'normal' ? z * c.sigma / Math.sqrt(n) : z * Math.sqrt(xb / n);
+  return [xb - h, xb + h];
+}
+
+// ================= stato =================
+let cfg, xs, cum, k, running = false, completing = false, acc = 0, traj, view = null, rep = null;
+function configure() {
+  const md = model(), c = { md };
+  c.N = readNum('nobs', 1, 5000, '{{Osservazioni in tutto|Total observations}}', true);
+  c.step = Math.max(1, Math.min(c.N, Math.round(num('nstep')) || 1)); $('nstep').value = c.step;
+  c.conf = +$('conf').value; c.z = qnorm(1 - (1 - c.conf) / 2); c.mrep = +$('mrep').value;
+  if (md === 'beta') {
+    c.theta = readNum('theta', 0.001, 0.999, '{{Vero valore di θ|True value of θ}}');
+    c.m0 = readNum('m0', 0.001, 0.999, '{{Media a priori|Prior mean}}'); c.n0 = readNum('n0', 0.01, 1e5, '{{Peso a priori|Prior weight}}');
+    c.a = c.m0 * c.n0; c.b = (1 - c.m0) * c.n0;
+  } else if (md === 'normal') {
+    c.theta = readNum('theta', -1e6, 1e6, '{{Vero valore di θ|True value of θ}}'); c.sigma = readNum('sigma', 1e-6, 1e6, 'σ');
+    c.m0 = readNum('m0', -1e6, 1e6, '{{Media a priori|Prior mean}}'); c.n0 = readNum('n0', 0, 1e5, '{{Peso a priori|Prior weight}}');
+  } else {
+    c.theta = readNum('theta', 0.01, 1000, '{{Vero valore di θ|True value of θ}}');
+    c.m0 = readNum('m0', 0.001, 1e4, '{{Media a priori|Prior mean}}'); c.n0 = readNum('n0', 0.001, 1e5, '{{Peso a priori|Prior weight}}');
+    c.a = c.m0 * c.n0; c.b = c.n0;
+  }
+  if (c.N * c.mrep > 3e7) c.mrep = Math.max(100, Math.floor(3e7 / c.N / 100) * 100);
+  cfg = c;
+  const names = { beta: '{{proporzione|proportion}}', normal: '{{media di una normale|mean of a normal}}', gamma: '{{tasso di una Poisson|rate of a Poisson}}' };
+  $('title').textContent = `{{Inferenza bayesiana|Bayesian inference}} · ${names[md]}: θ = ${fmtp(c.theta)}`;
+  const pr = md === 'beta' ? `Beta(${fmtp(c.a)}{{;|,}} ${fmtp(c.b)})` : md === 'normal' ? (c.n0 > 0 ? `N(${fmtp(c.m0)}{{;|,}} ${fmtp(c.sigma ** 2 / c.n0)})` : '{{piatta|flat}}') : `Gamma(${fmtp(c.a)}{{;|,}} ${fmtp(c.b)})`;
+  $('subtitle').textContent = `{{Prior|Prior}} ${pr}, {{cioè|that is}} m₀ = ${fmtp(c.m0)} {{con peso|with weight}} n₀ = ${fmtp(c.n0)}; ${fmtn(c.N)} {{osservazioni|observations}}${md === 'normal' ? `, σ = ${fmtp(c.sigma)}` : ''}; {{intervalli al|intervals at}} ${Math.round(100 * c.conf)}%.`;
+  $('foot').textContent = md === 'beta'
+    ? '{{Con prior Beta(α, β) e s successi su n prove la posterior è Beta(α + s, β + n − s): la prior conta come α successi e β insuccessi “già visti”. L’intervallo frequentista è quello di Wald.|With a Beta(α, β) prior and s successes in n trials the posterior is Beta(α + s, β + n − s): the prior counts as α successes and β failures “already seen”. The frequentist interval is the Wald one.}}'
+    : md === 'normal' ? '{{Con prior N(m₀, σ²/n₀) e media campionaria x̄ di n dati, la posterior è normale con media (n₀m₀ + n·x̄)/(n₀ + n) e varianza σ²/(n₀ + n). L’intervallo frequentista è x̄ ± z·σ/√n.|With a N(m₀, σ²/n₀) prior and sample mean x̄ of n data, the posterior is normal with mean (n₀m₀ + n·x̄)/(n₀ + n) and variance σ²/(n₀ + n). The frequentist interval is x̄ ± z·σ/√n.}}'
+    : '{{Con prior Gamma(a, b) e conteggi di somma S in n periodi la posterior è Gamma(a + S, b + n): la prior conta come a eventi osservati in b periodi. L’intervallo frequentista è x̄ ± z·√(x̄/n).|With a Gamma(a, b) prior and counts summing to S over n periods the posterior is Gamma(a + S, b + n): the prior counts as a events seen in b periods. The frequentist interval is x̄ ± z·√(x̄/n).}}';
+}
+function reset() {
+  const c = cfg; setSeed(num('seed') || 1);
+  xs = new Float64Array(c.N); cum = new Float64Array(c.N + 1);
+  for (let i = 0; i < c.N; i++) { xs[i] = rObs(c); cum[i + 1] = cum[i] + xs[i]; }
+  traj = [];
+  k = 0; addTraj(0); view = null;
+  running = false; completing = false; acc = 0; rep = null; $('repbox').hidden = true; $('repnote').textContent = ''; $('rep').disabled = false;
+  $('rep').textContent = `{{Ripeti l’esperimento|Repeat the experiment}} ${fmtn(c.mrep)} {{volte|times}}`;
+  $('go').textContent = '{{Avvia|Start}}'; $('go').disabled = false; $('all').disabled = false;
+  updateText(); updateSpeedText();
+}
+function addTraj(n) {
+  const c = cfg, S = cum[n], P = post(c, n, S), lo = (1 - c.conf) / 2;
+  traj[n] = P ? { mean: P.mean, lo: quant(P, lo), hi: quant(P, 1 - lo), mle: n ? S / n : NaN } : { mean: NaN, lo: NaN, hi: NaN, mle: n ? S / n : NaN };
+}
+function advance(q) {
+  const c = cfg; q = Math.min(q, c.N - k);
+  for (let j = 0; j < q; j++) { k++; addTraj(k); }
+  if (k >= c.N) { running = false; completing = false; $('go').textContent = '{{Fatto|Done}}'; $('go').disabled = true; $('all').disabled = true; }
+  updateText();
+}
+function row(lab, a) { return `<tr><td class="lab">${lab}</td><td>${a}</td></tr>`; }
+function updateText() {
+  const c = cfg, n = k, S = cum[n], P = post(c, n, S), T = traj[n];
+  $('count').textContent = `n = ${fmtn(n)} {{osservazioni su|observations out of}} ${fmtn(c.N)}`;
+  $('bar').style.width = (100 * n / c.N) + '%';
+  if (c.md === 'beta') {
+    const last = Array.from(xs.slice(Math.max(0, n - 30), n)).join(' ');
+    $('datanote').textContent = n ? `${fmtn(S)} {{successi; ultimi dati|successes; latest data}}: ${last}` : '';
+  } else $('datanote').textContent = n ? `{{ultimo dato|latest datum}}: ${fmt(xs[n - 1], c.md === 'gamma' ? 0 : 3)}` : '';
+  const d = c.md === 'beta' ? 4 : 3;
+  let h = '';
+  h += row(c.md === 'beta' ? '{{Successi s / prove n|Successes s / trials n}}' : '{{Media dei dati x̄|Mean of the data x̄}}', c.md === 'beta' ? `${fmtn(S)} / ${fmtn(n)}` : (n ? fmt(S / n, d) : '–'));
+  h += row('{{Media a priori m₀|Prior mean m₀}}', fmt(c.m0, d));
+  h += row('{{Massima verosimiglianza θ̂|Maximum likelihood θ̂}}', n ? fmt(S / n, d) : '–');
+  h += row('{{Media a posteriori|Posterior mean}}', P ? `<span class="big">${fmt(P.mean, d)}</span>` : '–');
+  h += row('{{Peso dei dati n/(n₀ + n)|Weight of the data n/(n₀ + n)}}', fmtpct(n / (c.n0 + n)));
+  h += row('{{Scarto quadratico medio a posteriori|Posterior standard deviation}}', P ? fmt(P.sd, d) : '–');
+  h += row(`{{Intervallo di credibilità al|Credible interval at}} ${Math.round(100 * c.conf)}%`, P ? `${fmt(T.lo, d)} – ${fmt(T.hi, d)}` : '–');
+  if (n) { const [a, b] = freqCI(c, n, S); h += row(`{{Intervallo di confidenza al|Confidence interval at}} ${Math.round(100 * c.conf)}%`, `${fmt(a, d)} – ${fmt(b, d)}`); }
+  if (P) {
+    const pLess = P.kind === 'beta' ? pbeta(c.theta, P.a, P.b) : P.kind === 'norm' ? pnorm((c.theta - P.m) / P.s) : pgamma(c.theta * P.b, P.a);
+    h += row('{{Probabilità a posteriori che θ sia sotto il vero valore|Posterior probability that θ is below the true value}}', fmtpct(pLess));
+  }
+  $('tab').innerHTML = h;
+  $('formula').textContent = n ? `${fmt(P ? P.mean : NaN, d)} = (${fmtp(c.n0)}·${fmt(c.m0, d)} + ${fmtn(n)}·${fmt(S / n, d)}) / (${fmtp(c.n0)} + ${fmtn(n)})` : '';
+  $('tabnote').textContent = '{{La media a posteriori è una media ponderata della media a priori e della media dei dati, con pesi n₀ e n.|The posterior mean is a weighted average of the prior mean and the data mean, with weights n₀ and n.}}';
+}
+const ups = () => +$('speed').value;
+function updateSpeedText() { const secs = Math.ceil(cfg.N / cfg.step) / ups(); $('speedval').textContent = `${ups()} {{aggiornamenti al secondo · circa|updates per second · about}} ${secs < 1 ? '{{meno di 1|less than 1}}' : fmtn(Math.round(secs))} {{s in tutto|s in all}}`; }
+
+// ================= ripetizioni =================
+function startRep() {
+  const c = cfg; rep = { i: 0, m: c.mrep, pm: new Float64Array(c.mrep), ml: new Float64Array(c.mrep), cb: 0, cf: 0, wb: 0, wf: 0 };
+  setSeed((num('seed') || 1) + 7919); $('rep').disabled = true; $('repbox').hidden = false;
+}
+function repChunk() {
+  const c = cfg, R = rep, t0 = performance.now(), lo = (1 - c.conf) / 2;
+  while (R.i < R.m && performance.now() - t0 < 25) {
+    let S = 0; for (let j = 0; j < c.N; j++) S += rObs(c);
+    const P = post(c, c.N, S), a = quant(P, lo), b = quant(P, 1 - lo), [fa, fb] = freqCI(c, c.N, S);
+    R.pm[R.i] = P.mean; R.ml[R.i] = S / c.N;
+    if (a <= c.theta && c.theta <= b) R.cb++; if (fa <= c.theta && c.theta <= fb) R.cf++;
+    R.wb += b - a; R.wf += fb - fa; R.i++;
+  }
+  const n = R.i;
+  $('repnote').textContent = `${fmtn(n)} {{ripetizioni su|repetitions out of}} ${fmtn(R.m)} {{di|of}} ${fmtn(c.N)} {{osservazioni ciascuna|observations each}}`;
+  const st = arr => { let s = 0, s2 = 0; for (let i = 0; i < n; i++) { s += arr[i]; s2 += (arr[i] - c.theta) ** 2; } return [s / n - c.theta, s2 / n]; };
+  const [bb, mb] = st(R.pm), [bf, mf] = st(R.ml), d = c.md === 'beta' ? 4 : 3;
+  const r2 = (lab, a, b) => `<tr><td class="lab">${lab}</td><td>${a}</td><td>${b}</td></tr>`;
+  $('reptab').innerHTML =
+    r2(`{{Copertura degli intervalli (nominale|Coverage of the intervals (nominal}} ${Math.round(100 * c.conf)}%)`, `<span class="big">${fmtpct(R.cb / n)}</span>`, `<span class="big">${fmtpct(R.cf / n)}</span>`) +
+    r2('{{Lunghezza media degli intervalli|Mean length of the intervals}}', fmt(R.wb / n, d), fmt(R.wf / n, d)) +
+    r2('{{Distorsione della stima puntuale|Bias of the point estimate}}', fmt(bb, d), fmt(bf, d)) +
+    r2('{{Errore quadratico medio|Mean squared error}}', fmt(mb, d + 2), fmt(mf, d + 2));
+  if (R.i >= R.m) { $('rep').disabled = false; $('rep').textContent = `{{Ripeti ancora|Repeat again}} (${fmtn(c.mrep)})`; R.done = true; }
+}
+function drawRep() {
+  const c = cfg, R = rep, n = R.i; if (!n) return;
+  const [ctx, w, h] = fit($('reph'));
+  let lo = Infinity, hi = -Infinity; for (let i = 0; i < n; i++) { lo = Math.min(lo, R.pm[i], R.ml[i]); hi = Math.max(hi, R.pm[i], R.ml[i]); }
+  lo = Math.min(lo, c.theta, c.m0); hi = Math.max(hi, c.theta, c.m0); if (hi - lo < 1e-9) { lo -= 0.5; hi += 0.5; }
+  const pad = (hi - lo) * 0.04, x0 = lo - pad, x1 = hi + pad, NB = 50, bw = (x1 - x0) / NB;
+  const cnt = (arr) => { const v = new Float64Array(NB); for (let i = 0; i < n; i++) { const b = Math.min(NB - 1, Math.floor((arr[i] - x0) / bw)); v[b]++; } return v.map(x => x / (n * bw)); };
+  const hp = cnt(R.pm), hm = cnt(R.ml), ymax = 1.1 * Math.max(...hp, ...hm);
+  const A = axes(ctx, w, h, { x0, x1, y0: 0, y1: ymax, small: true, xlab: 'θ' });
+  ctx.fillStyle = C.bar; for (let i = 0; i < NB; i++) if (hp[i] > 0) { const y = A.PY(hp[i]); ctx.fillRect(A.PX(x0 + i * bw) + .5, y, A.pw / NB - 1, A.T + A.ph - y); }
+  ctx.strokeStyle = C.strip; ctx.lineWidth = 2; ctx.beginPath();
+  for (let i = 0; i < NB; i++) { const y = A.PY(hm[i]); i ? ctx.lineTo(A.PX(x0 + i * bw), y) : ctx.moveTo(A.PX(x0), y); ctx.lineTo(A.PX(x0 + (i + 1) * bw), y); }
+  ctx.stroke();
+  vline(ctx, A, c.theta, C.ink, [5, 4]); vline(ctx, A, c.m0, C.curve, [2, 3]);
+  legend(ctx, A, [[C.bar, '{{media a posteriori|posterior mean}}', 'box'], [C.strip, '{{massima verosimiglianza|maximum likelihood}}', 'line'], [C.ink, '{{vero valore|true value}}', 'dash'], [C.curve, '{{media a priori|prior mean}}', 'dot']]);
+}
+
+// ================= disegno =================
+function rangeOf(P, a, b) { return P ? [quant(P, a), quant(P, b)] : null; }
+function drawDens(a) {
+  const c = cfg, n = k, S = cum[n], P = post(c, n, S), Lk = lik(c, n, S), P0 = post(c, 0, 0);
+  // finestra: posterior, verosimiglianza e vero valore; la prior solo all’inizio (se no schiaccerebbe tutto)
+  const parts = [rangeOf(P, 0.0005, 0.9995), rangeOf(Lk, 0.0005, 0.9995), [c.theta, c.theta]];
+  if (n < 3 && P0) parts.push(rangeOf(P0, 0.01, 0.99));
+  let lo = Math.min(...parts.filter(Boolean).map(r => r[0])), hi = Math.max(...parts.filter(Boolean).map(r => r[1]));
+  const pad = (hi - lo) * 0.08 || 0.5; lo -= pad; hi += pad;
+  if (c.md === 'beta') { lo = Math.max(0, lo); hi = Math.min(1, hi); } else if (c.md === 'gamma') lo = Math.max(0, lo);
+  if (!view) view = { lo, hi, ym: 1 };
+  view.lo += (lo - view.lo) * a; view.hi += (hi - view.hi) * a;
+  const showL = $('showlik').checked && Lk, showP = $('showprior').checked && P0;
+  let ym = 0; const N = 300;
+  for (let j = 0; j <= N; j++) { const x = view.lo + (view.hi - view.lo) * j / N; for (const D of [P, showL ? Lk : null]) if (D) { const y = dens(D, x); if (Number.isFinite(y)) ym = Math.max(ym, y); } }
+  ym = 1.12 * (ym || 1); view.ym += (ym - view.ym) * a;
+  const [ctx, w, h] = fit($('dens'));
+  const A = axes(ctx, w, h, { x0: view.lo, x1: view.hi, y0: 0, y1: view.ym, xlab: 'θ' });
+  A.clip();
+  if (P) { // area sotto la posterior, più intensa nell’intervallo di credibilità
+    const T = traj[n];
+    for (const [x0, x1, al] of [[view.lo, view.hi, 0.18], [T.lo, T.hi, 0.42]]) {
+      const u0 = Math.max(x0, view.lo), u1 = Math.min(x1, view.hi); if (u1 <= u0) continue;
+      ctx.fillStyle = hexA(C.bar, al); ctx.beginPath(); ctx.moveTo(A.PX(u0), A.PY(0));
+      for (let j = 0; j <= 300; j++) { const x = u0 + (u1 - u0) * j / 300, y = dens(P, x); ctx.lineTo(A.PX(x), A.PY(Number.isFinite(y) ? Math.min(y, view.ym * 1.2) : 0)); }
+      ctx.lineTo(A.PX(u1), A.PY(0)); ctx.fill();
+    }
+    ctx.strokeStyle = C.bar; ctx.lineWidth = 2.5; curve(ctx, A, x => dens(P, x), view.lo, view.hi);
+  }
+  if (showP) { ctx.strokeStyle = C.muted; ctx.lineWidth = 1.8; ctx.setLineDash([6, 4]); curve(ctx, A, x => dens(P0, x), view.lo, view.hi); ctx.setLineDash([]); }
+  if (showL) { ctx.strokeStyle = C.strip; ctx.lineWidth = 2; ctx.setLineDash([2, 3]); curve(ctx, A, x => dens(Lk, x), view.lo, view.hi); ctx.setLineDash([]); }
+  ctx.restore();
+  vline(ctx, A, c.theta, C.ink, [5, 4], 1.5);
+  if (n) { const px = A.PX(S / n); ctx.fillStyle = C.strip; ctx.beginPath(); ctx.moveTo(px, A.T + A.ph); ctx.lineTo(px - 6, A.T + A.ph + 9); ctx.lineTo(px + 6, A.T + A.ph + 9); ctx.fill(); }
+  const items = [];
+  if (P) items.push([C.bar, '{{a posteriori|posterior}}', 'line']);
+  if (showP) items.push([C.muted, '{{a priori|prior}}', 'dash']);
+  if (showL) items.push([C.strip, '{{verosimiglianza|likelihood}} (▲ θ̂)', 'dot']);
+  items.push([C.ink, '{{vero valore|true value}}', 'dash']);
+  legend(ctx, A, items);
+}
+function drawTraj() {
+  const c = cfg, [ctx, w, h] = fit($('traj'));
+  // scala verticale robusta: dalle prime osservazioni in poi, più vero valore e media a priori
+  const from = Math.min(k, Math.max(1, Math.ceil(c.N * 0.03)));
+  let lo = Math.min(c.theta, c.m0), hi = Math.max(c.theta, c.m0);
+  for (let i = from; i <= k; i++) { const T = traj[i]; for (const v of [T.lo, T.hi, T.mle]) if (Number.isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }
+  if (c.md === 'beta') { lo = Math.max(0, lo); hi = Math.min(1, hi); }
+  const pad = (hi - lo) * 0.1 || 0.5;
+  const A = axes(ctx, w, h, { x0: 0, x1: c.N, y0: lo - pad, y1: hi + pad, xFmt: x => fmtn(x), xlab: 'n', small: false });
+  A.clip();
+  ctx.fillStyle = hexA(C.bar, 0.3); ctx.beginPath(); let started = false;
+  for (let i = 0; i <= k; i++) { const T = traj[i]; if (!Number.isFinite(T.hi)) continue; started ? ctx.lineTo(A.PX(i), A.PY(T.hi)) : ctx.moveTo(A.PX(i), A.PY(T.hi)); started = true; }
+  for (let i = k; i >= 0; i--) { const T = traj[i]; if (Number.isFinite(T.lo)) ctx.lineTo(A.PX(i), A.PY(T.lo)); }
+  if (started) ctx.fill();
+  hline(ctx, A, c.theta, C.ink, [5, 4], 1.3);
+  ctx.strokeStyle = C.strip; ctx.lineWidth = 1.5; ctx.setLineDash([2, 3]); ctx.beginPath(); started = false;
+  for (let i = 1; i <= k; i++) { const v = traj[i].mle; started ? ctx.lineTo(A.PX(i), A.PY(v)) : ctx.moveTo(A.PX(i), A.PY(v)); started = true; } ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle = C.curve; ctx.lineWidth = 2.2; ctx.beginPath(); started = false;
+  for (let i = 0; i <= k; i++) { const v = traj[i].mean; if (!Number.isFinite(v)) continue; started ? ctx.lineTo(A.PX(i), A.PY(v)) : ctx.moveTo(A.PX(i), A.PY(v)); started = true; } ctx.stroke();
+  ctx.restore();
+  legend(ctx, A, [[C.curve, '{{media a posteriori|posterior mean}}', 'line'], [C.bar, '{{intervallo di credibilità|credible interval}}', 'box'], [C.strip, '{{massima verosimiglianza|maximum likelihood}}', 'dot'], [C.ink, '{{vero valore|true value}}', 'dash']]);
+}
+function draw(dt) {
+  if ($('run').hidden) return;
+  const a = reduce ? 1 : 1 - Math.exp(-dt / 0.12);
+  drawDens(a); drawTraj(); if (rep && rep.i) drawRep();
+}
+let prev = performance.now();
+function frame(now) {
+  const dt = Math.min(0.1, (now - prev) / 1000); prev = now;
+  if (completing) { const t0 = performance.now(); while (completing && performance.now() - t0 < 30) advance(cfg.step * 20); }
+  if (running) { acc += dt; const step = 1 / ups(); let c = 0; while (acc >= step && running && c < 4) { advance(cfg.step); acc -= step; c++; } }
+  if (rep && !rep.done) repChunk();
+  draw(dt); requestAnimationFrame(frame);
+}
+
+// ================= comandi =================
+const T0 = $('title').textContent, S0 = $('subtitle').textContent;
+$('ok').onclick = () => {
+  try { configure(); } catch (e) { $('err').textContent = typeof e === 'string' ? e : '{{Errore nei valori scelti.|Error in the chosen values.}}'; console.error(e); return; }
+  $('err').textContent = ''; reset();
+  $('setup').hidden = true; $('run').hidden = false; window.scrollTo(0, 0);
+};
+$('back').onclick = () => { running = false; completing = false; rep = null; $('run').hidden = true; $('setup').hidden = false; $('title').textContent = T0; $('subtitle').textContent = S0; };
+$('go').onclick = () => { if (k >= cfg.N) return; running = !running; acc = 1 / ups(); $('go').textContent = running ? '{{Pausa|Pause}}' : '{{Riprendi|Resume}}'; };
+$('all').onclick = () => { if (k >= cfg.N) return; running = false; completing = true; $('go').textContent = '{{Calcolo…|Computing…}}'; $('go').disabled = true; $('all').disabled = true; };
+$('reset').onclick = reset;
+$('rep').onclick = startRep;
+$('speed').addEventListener('input', updateSpeedText);
+requestAnimationFrame(frame);
+window.__simul = { configure, reset, advance, startRep, post, quant, get st() { return { cfg, k, traj, rep }; } };
+})();
+</script>
+@@TAIL@@
+</body>
+</html>

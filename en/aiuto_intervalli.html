@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>
+// tema dello sfondo: automatico (come il sistema), chiaro o scuro; la scelta vale per tutte le pagine di Simul2000.
+// Le pagine chiedono il tema con matchMedia('(prefers-color-scheme: dark)'): qui la risposta tiene conto della scelta fatta
+(() => {
+  const KEY = 'simul2000-tema'; let pref = 'auto';
+  try { pref = localStorage.getItem(KEY) || 'auto'; } catch (e) {}
+  const real = window.matchMedia.bind(window), sys = real('(prefers-color-scheme: dark)'), listeners = new Set();
+  const dark = () => pref === 'dark' || (pref === 'auto' && sys.matches);
+  const apply = () => { const r = document.documentElement; if (pref === 'auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', pref); };
+  const notify = () => { const ev = { matches: dark(), media: '(prefers-color-scheme: dark)' }; listeners.forEach(f => { try { f(ev); } catch (e) {} }); };
+  const fake = { media: '(prefers-color-scheme: dark)', onchange: null, get matches() { return dark(); },
+    addEventListener: (t, f) => listeners.add(f), removeEventListener: (t, f) => listeners.delete(f), addListener: f => listeners.add(f), removeListener: f => listeners.delete(f), dispatchEvent: () => true };
+  sys.addEventListener('change', () => { if (pref === 'auto') notify(); });
+  window.matchMedia = q => (/prefers-color-scheme:\s*dark/.test(q) ? fake : real(q));
+  window.simulTheme = { get: () => pref, set(v) { pref = v; try { localStorage.setItem(KEY, v); } catch (e) {} apply(); notify(); } };
+  apply();
+})();
+</script>
+
+<title>Simul2000 · Help: Confidence intervals and tests</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F5F6F8;--surface:#FFFFFF;--ink:#1D2229;--muted:#5F6875;--rule:#DDE1E6;--grid:#ECEFF2;--accent:#3C5A99;--accent-ink:#FFFFFF;--sel:#E8EEF9;--btn:#EEF1F4;--btn-ink:#1D2229;--note:#F3F6FB;--tip:#E6EFFB;--tip-bd:#7E9FD4;--tip-ink:#2B4B85;
+  --i1:#3C5A99;--i2:#5F6875;--i3:#8A6D1F;--i4:#B3261E;--i5:#B3561E;--i6:#8A7400;--i7:#2E7D3E;--i8:#1F7A85;--i9:#9B2F8C;--i10:#5A4BB5;--i12:#5F6875;
+  color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#15181D;--surface:#1D2128;--ink:#E6E9ED;--muted:#9AA3AF;--rule:#2F353F;--grid:#262B33;--accent:#8FB0F0;--accent-ink:#11151B;--sel:#25324A;--btn:#2A3039;--btn-ink:#E6E9ED;--note:#1F2632;--tip:#1B2840;--tip-bd:#5878B0;--tip-ink:#AFC6F2;--i1:#8FB0F0;--i2:#B5BDC8;--i3:#E0C068;--i4:#FF8A80;--i5:#FFAB70;--i6:#EBD36A;--i7:#7FD891;--i8:#6FD3DE;--i9:#E890DA;--i10:#AFA4FF;--i12:#B5BDC8;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#15181D;--surface:#1D2128;--ink:#E6E9ED;--muted:#9AA3AF;--rule:#2F353F;--grid:#262B33;--accent:#8FB0F0;--accent-ink:#11151B;--sel:#25324A;--btn:#2A3039;--btn-ink:#E6E9ED;--note:#1F2632;--tip:#1B2840;--tip-bd:#5878B0;--tip-ink:#AFC6F2;--i1:#8FB0F0;--i2:#B5BDC8;--i3:#E0C068;--i4:#FF8A80;--i5:#FFAB70;--i6:#EBD36A;--i7:#7FD891;--i8:#6FD3DE;--i9:#E890DA;--i10:#AFA4FF;--i12:#B5BDC8;color-scheme:dark}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 1rem)}
+body{background:var(--bg);color:var(--ink);font:400 16px/1.62 "IBM Plex Sans","Helvetica Neue",Arial,sans-serif}
+.wrap{max-width:76rem;margin:0 auto;padding:1.5rem 1.25rem 3rem}
+button{font:inherit;font-weight:500;border:1px solid var(--rule);background:var(--btn);color:var(--btn-ink);border-radius:6px;padding:.45rem .8rem;cursor:pointer}
+.layout{display:grid;grid-template-columns:15.5rem minmax(0,1fr);gap:2rem;align-items:start}
+nav.toc{position:sticky;top:1rem;font-size:.9rem;border-right:1px solid var(--rule);padding-right:1rem;max-height:calc(100vh - 2rem);overflow:auto}
+nav.toc h2{font:600 .78rem/1.3 "IBM Plex Sans",Arial,sans-serif;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:0 0 .5rem}
+nav.toc ol{list-style:none;margin:0 0 1.2rem;padding:0}
+nav.toc li{margin:.1rem 0}
+nav.toc a{display:flex;align-items:center;gap:.45rem;padding:.28rem .55rem;border-radius:6px;color:var(--ink);text-decoration:none}
+nav.toc a:hover{background:var(--sel)}
+nav.toc a[aria-current="page"]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+nav.toc svg.ni{width:24px;height:17px;flex-shrink:0}
+nav.toc a[aria-current="page"] svg.ni{color:var(--accent-ink) !important}
+nav.toc .soon{display:flex;align-items:center;gap:.45rem;padding:.28rem .55rem;color:var(--muted);opacity:.7}
+nav.toc .sub a{font-size:.85rem;color:var(--muted);padding:.18rem .55rem .18rem 1.1rem}
+article{max-width:46rem}
+.kicker{font:600 .8rem/1.3 "IBM Plex Sans",Arial,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin:0 0 .3rem}
+h1 svg.ti{width:62px;height:42px;vertical-align:-.35rem;margin-right:.6rem}
+h1{font:500 2rem/1.15 "IBM Plex Serif",Georgia,serif;margin:0 0 .5rem}
+.lede{font-size:1.08rem;color:var(--muted);margin:0 0 1.2rem}
+h2{font:500 1.4rem/1.25 "IBM Plex Serif",Georgia,serif;margin:2.2rem 0 .7rem;padding-top:.6rem;border-top:1px solid var(--rule)}
+h3{font:600 1.02rem/1.35 "IBM Plex Sans",Arial,sans-serif;margin:1.4rem 0 .4rem}
+p{margin:0 0 .85rem}
+ul,ol{margin:0 0 .9rem;padding-left:1.3rem}
+li{margin:.25rem 0}
+a{color:var(--accent)}
+code,kbd{font:500 .9em/1 "IBM Plex Mono",Menlo,monospace;background:var(--grid);padding:.08rem .3rem;border-radius:4px}
+.ui{font-weight:600;white-space:nowrap}
+.formula{font:400 1.02rem/1.6 "IBM Plex Serif",Georgia,serif;background:var(--note);border-left:3px solid var(--accent);padding:.55rem .9rem;margin:.4rem 0 1rem;border-radius:0 6px 6px 0;overflow-x:auto}
+figure{margin:1rem 0 1.4rem}
+figure img{display:block;width:100%;height:auto;border:1px solid var(--rule);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.08)}
+figcaption{color:var(--muted);font-size:.86rem;margin-top:.45rem}
+.tip{background:var(--tip);border:1.5px solid var(--tip-bd);border-left:6px solid var(--tip-bd);border-radius:10px;padding:.85rem 1.1rem;margin:0 0 1rem;box-shadow:0 2px 6px rgba(20,40,80,.08)}
+.tip h3{margin:0 0 .35rem;color:var(--tip-ink)}
+.tip h3::before{content:"";display:inline-block;width:.55rem;height:.55rem;border-radius:50%;background:var(--tip-bd);margin-right:.5rem;vertical-align:.1rem}
+@media print{.tip{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+.tip p:last-child{margin-bottom:0}
+.tablewrap{overflow-x:auto;margin:0 0 1rem}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{text-align:left;padding:.4rem .55rem;border-bottom:1px solid var(--rule);vertical-align:top}
+th{color:var(--muted);font-weight:600}
+.backmod{display:inline-flex;align-items:center;gap:.4rem;font-weight:600;color:var(--accent);text-decoration:none;border:1.5px solid var(--accent);border-radius:8px;padding:.45rem .9rem;margin:0 0 1.2rem}
+.backmod:hover{background:var(--sel)}
+.modlist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem;margin:0 0 1rem;padding:0;list-style:none}
+.modlist a{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:.75rem;align-items:center;height:100%;padding:.6rem .8rem;border:1px solid var(--rule);border-radius:8px;text-decoration:none;color:var(--ink);background:var(--surface)}
+.modlist a:hover{border-color:var(--accent)}
+.modlist svg.mi{grid-row:1/3;width:46px;height:32px}
+.modlist b{display:block;color:var(--accent)}
+.modlist span{font-size:.86rem;color:var(--muted)}
+
+.topbar .themesel{margin-left:auto}
+footer{margin-top:2.5rem;color:var(--muted);font-size:.85rem;border-top:1px solid var(--rule);padding-top:1rem}
+@media (max-width:56rem){.layout{grid-template-columns:1fr}nav.toc{position:static;border-right:none;border-bottom:1px solid var(--rule);padding:0 0 .8rem;max-height:none}.modlist{grid-template-columns:1fr}}
+
+/* barra superiore: ritorno al menu e scelta dello sfondo */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:.6rem 1rem;flex-wrap:wrap;margin:0 0 1.1rem}
+a.home{display:inline-flex;align-items:center;gap:.5rem;font:600 1.02rem/1.2 "IBM Plex Sans","Helvetica Neue",Arial,sans-serif;color:var(--accent-ink,var(--surface,#fff));background:var(--accent,var(--title,#3C5A99));border:1px solid var(--accent,var(--title,#3C5A99));border-radius:8px;padding:.6rem 1.1rem;text-decoration:none;box-shadow:0 2px 0 rgba(0,0,0,.18)}
+a.home:hover{filter:brightness(1.08)}
+a.home:active{transform:translateY(1px);box-shadow:none}
+a.home:focus-visible,.themesel button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.themesel{display:inline-flex;align-items:center;gap:.25rem;font-size:.85rem;color:var(--muted)}
+.themesel > span{margin-right:.35rem}
+.themesel button{font:inherit;font-size:.85rem;padding:.32rem .65rem;border:1px solid var(--rule);background:transparent;color:var(--ink);border-radius:6px;cursor:pointer}
+.themesel button[aria-pressed="true"]{background:var(--sel,rgba(60,90,153,.14));border-color:var(--accent,var(--title,#3C5A99));font-weight:600}
+/* cornice dell’applicazione, solo sugli schermi grandi: con lo sfondo scuro l’esterno è quasi nero e il bordo più chiaro */
+:root{--outer:color-mix(in srgb,var(--bg) 86%,var(--ink));--frame:var(--rule);--frame-sh:0 12px 40px rgba(0,0,0,.14);
+  --b-hi:rgba(255,255,255,.75);--b-lo:rgba(0,0,0,.07);--b-sh:rgba(20,30,50,.20);--field:#E1ECFB;--field-bd:#7A9CD2;--field-focus:#F2F7FE;--arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%232F4F8A' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");--btn2:#D9E6F8;--btn2-ink:#1B2945;--btn2-bd:#A6BDE2}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--outer:#090B0E;--frame:#3E4654;--frame-sh:0 0 0 1px rgba(255,255,255,.03),0 18px 50px rgba(0,0,0,.7);
+  --b-hi:rgba(255,255,255,.10);--b-lo:rgba(0,0,0,.35);--b-sh:rgba(0,0,0,.6);--field:#22324B;--field-bd:#5C7DB4;--field-focus:#2A3D5C;--arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23A9C4F0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");--btn2:#2A3B58;--btn2-ink:#E7EDF7;--btn2-bd:#4A5F86}}
+:root[data-theme="dark"]{--outer:#090B0E;--frame:#3E4654;--frame-sh:0 0 0 1px rgba(255,255,255,.03),0 18px 50px rgba(0,0,0,.7);
+  --b-hi:rgba(255,255,255,.10);--b-lo:rgba(0,0,0,.35);--b-sh:rgba(0,0,0,.6);--field:#22324B;--field-bd:#5C7DB4;--field-focus:#2A3D5C;--arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23A9C4F0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");--btn2:#2A3B58;--btn2-ink:#E7EDF7;--btn2-bd:#4A5F86}
+@media (min-width:60rem){
+  body{background:var(--outer)}
+  .wrap{width:calc(100% - 2.5rem);background:var(--bg);border:1px solid var(--frame);border-radius:16px;box-shadow:var(--frame-sh);margin:1.25rem auto 1.5rem;padding-left:1.75rem;padding-right:1.75rem}
+}
+/* tutto ciò che si può premere ha l’aspetto di un pulsante; pannelli e tabelle restano piatti */
+button:not(.sw){background-image:linear-gradient(180deg,var(--b-hi),transparent 55%,var(--b-lo));border-bottom-width:2px;border-bottom-color:color-mix(in srgb,var(--ink) 28%,var(--rule));box-shadow:inset 0 1px 0 var(--b-hi),0 1px 3px var(--b-sh);transition:transform .08s ease,box-shadow .08s ease}
+button:not(.sw):hover:not(:disabled){transform:translateY(-1px);box-shadow:inset 0 1px 0 var(--b-hi),0 3px 7px var(--b-sh)}
+button:not(.sw):active:not(:disabled){transform:translateY(1px);box-shadow:inset 0 2px 4px var(--b-lo)}
+button:disabled{background-image:none;box-shadow:none;transform:none}
+@media (prefers-reduced-motion: reduce){button:not(.sw){transition:none}button:not(.sw):hover:not(:disabled),button:not(.sw):active:not(:disabled){transform:none}}
+/* i campi in cui si scrive o si sceglie un valore hanno uno sfondo grigio, come caselle */
+/* campi da compilare: azzurri con bordo blu, disegnati senza lo stile di sistema del browser */
+input[type=number],select,textarea{-webkit-appearance:none;appearance:none;background-color:var(--field);border:1.5px solid var(--field-bd);border-radius:6px;box-shadow:inset 0 1px 3px var(--b-lo);color:var(--ink)}
+input[type=number]{-moz-appearance:textfield}
+select{background-image:var(--arrow);background-repeat:no-repeat;background-position:right .6rem center;background-size:12px 8px;padding-right:2rem}
+input[type=number]:focus,select:focus,textarea:focus{background-color:var(--field-focus);border-color:var(--accent,#3C5A99)}
+/* pulsanti secondari colorati (azzurro chiaro, o blu scuro con lo sfondo scuro); quelli principali restano nel colore d’accento */
+button:not(.sw):not(.primary):not(:disabled){background-color:var(--btn2);color:var(--btn2-ink);border-color:var(--btn2-bd);border-bottom-color:color-mix(in srgb,var(--btn2-bd) 65%,var(--ink))}
+button[aria-pressed="true"]:not(.sw):not(.primary),button[aria-selected="true"]:not(.sw):not(.primary){background-color:var(--accent,#3C5A99);color:var(--accent-ink,var(--surface,#fff));border-color:var(--accent,#3C5A99)}
+/* pulsante per salvare l’immagine e messaggio temporaneo */
+.topbar .savebtn{margin-left:auto}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 1.2rem);transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:.6rem 1rem;border-radius:8px;font-size:.9rem;max-width:min(90vw,34rem);z-index:50;box-shadow:0 6px 20px rgba(0,0,0,.3)}
+/* OK ripetuto in cima al quadro delle scelte */
+.gotop{display:flex;align-items:center;gap:.5rem 1rem;flex-wrap:wrap;margin:0 0 1rem}
+.gotop button{padding:.7rem 1.5rem;font-size:1.02rem}
+.langlink{display:inline-flex;align-items:center;font:600 .9rem/1.2 "IBM Plex Sans",Arial,sans-serif;color:var(--accent,var(--title,#3C5A99));text-decoration:none;border:1.5px solid var(--accent,var(--title,#3C5A99));border-radius:6px;padding:.32rem .7rem}
+.langlink:hover{background:var(--sel,rgba(60,90,153,.12))}
+</style>
+<style id="newmods">:root{--t13:#DCF0EC;--t14:#F3E8DC;--t15:#E3EAF2;--i13:#0E7C6B;--i14:#8B5A2B;--i15:#476A8A;}@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--t13:#17302B;--t14:#30261C;--t15:#1F2832;--i13:#63D3BF;--i14:#E0A872;--i15:#9FC1E0;}}:root[data-theme="dark"]{--t13:#17302B;--t14:#30261C;--t15:#1F2832;--i13:#63D3BF;--i14:#E0A872;--i15:#9FC1E0;}#inf a.tile b{padding-right:4.2rem}</style>
+</head>
+
+<body>
+<div class="wrap">
+<div class="topbar"><a class="home" id="homelink" href="index.html">← Main menu</a><a class="langlink" id="langlink" href="../aiuto_intervalli.html" hreflang="it" lang="it">Italiano</a><div class="themesel" role="group" aria-label="Page background"><span>Background</span><button type="button" data-t="auto">automatic</button><button type="button" data-t="light">light</button><button type="button" data-t="dark">dark</button></div></div>
+<div class="layout">
+<nav class="toc" aria-label="Help contents"><h2>Simul2000 help</h2><ol><li><a href="aiuto.html"><svg class="ni" style="color:var(--i12)" viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="32" cy="22" r="18"/><path d="M26 17c0-4 3-6 6-6s6 2 6 6c0 5-6 5-6 10" /><circle cx="32" cy="33" r="1.5" fill="currentColor" stroke="none"/></svg>General help</a></li><li><a href="aiuto_univariata.html"><svg class="ni" style="color:var(--i1)" viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 40h52" opacity=".5"/><rect x="12" y="28" width="6" height="12" fill="currentColor" stroke="none" opacity=".35"/><rect x="19" y="16" width="6" height="24" fill="currentColor" stroke="none" opacity=".35"/><rect x="26" y="9" width="6" height="31" fill="currentColor" stroke="none" opacity=".35"/><rect x="33" y="12" width="6" height="28" fill="currentColor" stroke="none" opacity=".35"/><rect x="40" y="24" width="6" height="16" fill="currentColor" stroke="none" opacity=".35"/><path d="M8 39c6-1 9-13 14-24s8-9 12-4 8 22 22 28"/></svg>Random number generation</a></li><li><a href="aiuto_medie.html"><svg class="ni" style="color:var(--i2)" viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 40h52" opacity=".5"/><circle cx="12" cy="6" r="2" fill="currentColor"/><circle cx="20" cy="6" r="2" fill="currentColor"/><circle cx="40" cy="6" r="2" fill="currentColor"/><circle cx="52" cy="6" r="2" fill="currentColor"/><circle cx="31" cy="6" r="3.5" fill="currentColor" stroke="none"/><path d="M14 39c6-1 10-24 17-26s11 25 19 26"/></svg>Sampling distributions of means</a></li><li><a href="aiuto_montecarlo.html"><svg class="ni" style="color:var(--i3)" viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="4" width="48" height="36" opacity=".5"/><path d="M8 4c10 16 26 30 48 36"/><g fill="currentColor" stroke="none"><circle cx="16" cy="30" r="1.6"/><circle cx="26" cy="34" r="1.6"/><circle cx="40" cy="36" r="1.6"/><circle cx="34" cy="28" r="1.6"/><circle cx="22" cy="24" r="1.6" opacity=".45"/><circle cx="40" cy="12" r="1.6" opacity=".45"/><circle cx="50" cy="20" r="1.6" opacity=".45"/><circle cx="30" cy="10" r="1.6" opacity=".45"/></g></svg>Monte Carlo integration</a></li><li><a href="aiuto_inversione.html"><svg class="ni" style="color:var(--i4)" viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 40h52M6 4v36" opacity=".5"/><path d="M8 38c14 0 16-34 46-34"/><path d="M6 25h21v15" stroke-dasharray="3 3"/></svg>Generation methods</a></li><li><a href="aiuto_regressione.html"><svg class="ni" style="color:var(--i5)" viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 40h52" opacity=".5"/><path d="M8 34 56 8" stroke-width="2.6"/><path d="M8 30 56 12M8 38 56 6M8 28 56 16" opacity=".4"/><g fill="currentColor" stroke="none"><circle cx="14" cy="34" r="2"/><circle cx="26" cy="24" r="2"/><circle cx="38" cy="22" r="2"/><circle cx="50" cy="10" r="2"/></g></svg>Regression relationships</a></li><li><a href="aiuto_glm.html"><svg class="ni" style="color:var(--i6)" viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 40h52" opacity=".5"/><path d="M8 37c18 0 18-31 48-31"/><g fill="currentColor" stroke="none"><circle cx="12" cy="38" r="2"/><circle cx="22" cy="38" r="2"/><circle cx="30" cy="5" r="2"/><circle cx="34" cy="38" r="2"/><circle cx="44" cy="5" r="2"/><circle cx="54" cy="5" r="2"/></g></svg>Generalised linear models</a></li><li><a href="aiuto_arma.html"><svg class="ni" style="color:var(--i7)" viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 22h52" opacity=".4"/><path d="M6 24l4-8 4 14 4-6 4 10 4-18 4 8 4-4 4 12 4-16 4 6 4 4 4-10"/></svg>ARMA models</a></li><li><a href="aiuto_bivariate.html"><svg class="ni" style="color:var(--i8)" viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="32" cy="22" rx="24" ry="11" transform="rotate(-24 32 22)"/><ellipse cx="32" cy="22" rx="12" ry="5" transform="rotate(-24 32 22)" opacity=".5"/><g fill="currentColor" stroke="none"><circle cx="22" cy="28" r="1.6"/><circle cx="28" cy="25" r="1.6"/><circle cx="36" cy="19" r="1.6"/><circle cx="42" cy="16" r="1.6"/><circle cx="31" cy="21" r="1.6"/><circle cx="18" cy="31" r="1.6"/><circle cx="46" cy="14" r="1.6"/></g></svg>Bivariate distributions</a></li><li><a href="aiuto_regressione_interattiva.html"><svg class="ni" style="color:var(--i9)" viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 40h52" opacity=".5"/><path d="M6 34 58 12" stroke-width="2.6"/><path d="M6 28c18-4 34-14 52-22M6 40c18-6 34-14 52-22" opacity=".45"/><g fill="currentColor" stroke="none"><rect x="12" y="27" width="5" height="5"/><rect x="27" y="22" width="5" height="5"/><rect x="44" y="14" width="5" height="5"/></g><path d="M47 30l4 9 2-4 4 2z" fill="currentColor" stroke="none"/></svg>Interactive regression</a></li><li><a href="aiuto_massima_verosimiglianza.html"><svg class="ni" style="color:var(--i10)" viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 20h52M6 41h52" opacity=".5"/><path d="M10 20c8-1 12-14 22-14s14 13 22 14"/><path d="M18 41c6-1 8-22 14-22s8 21 14 22"/></svg>Mean and maximum likelihood</a></li><li><a href="aiuto_intervalli.html" aria-current="page"><svg class="ni" style="color:var(--i13)" viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M33 3v38" stroke-dasharray="3 3" opacity=".6"/><path d="M14 8h30M20 15h28M8 22h22M18 29h26"/><path d="M38 36h20" stroke-width="2.8"/><g fill="currentColor" stroke="none"><circle cx="29" cy="8" r="2"/><circle cx="34" cy="15" r="2"/><circle cx="19" cy="22" r="2"/><circle cx="31" cy="29" r="2"/><circle cx="48" cy="36" r="2.4"/></g></svg>Confidence intervals and tests</a></li><li class="sub"><a href="#mostra">What it shows</a></li><li class="sub"><a href="#uso">How to use it</a></li><li class="sub"><a href="#didattica">Teaching suggestions</a></li><li class="sub"><a href="#tecnica">Technical details</a></li><li><a href="aiuto_bayes.html"><svg class="ni" style="color:var(--i14)" viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 40h52" opacity=".5"/><path d="M6 38c10-2 14-16 24-16s14 14 26 16" stroke-dasharray="3 3" opacity=".75"/><path d="M24 39c6-1 8-34 14-34s8 33 14 34" stroke-width="2.4"/></svg>Bayesian inference</a></li><li><a href="aiuto_nonparametrica.html"><svg class="ni" style="color:var(--i15)" viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 40h52" opacity=".5"/><g fill="currentColor" stroke="none" opacity=".35"><rect x="9" y="34" width="6" height="6"/><rect x="17" y="29" width="6" height="11"/><rect x="25" y="24" width="6" height="16"/><rect x="33" y="19" width="6" height="21"/><rect x="41" y="14" width="6" height="26"/><rect x="49" y="9" width="6" height="31"/></g><path d="M10 6c8-4 16-4 22 2" /><path d="M32 8l-1-5M32 8l-5 0"/><g fill="currentColor" stroke="none"><circle cx="40" cy="5" r="2"/><circle cx="47" cy="5" r="2"/><circle cx="54" cy="5" r="2"/></g></svg>Nonparametric inference</a></li></ol></nav>
+<article>
+<a class="backmod" id="backmod" href="simul_intervalli.html">← Back to the module</a>
+<p class="kicker">Module help</p>
+<h1><svg class="ti" style="color:var(--i13)" viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M33 3v38" stroke-dasharray="3 3" opacity=".6"/><path d="M14 8h30M20 15h28M8 22h22M18 29h26"/><path d="M38 36h20" stroke-width="2.8"/><g fill="currentColor" stroke="none"><circle cx="29" cy="8" r="2"/><circle cx="34" cy="15" r="2"/><circle cx="19" cy="22" r="2"/><circle cx="31" cy="29" r="2"/><circle cx="48" cy="36" r="2.4"/></g></svg>Confidence intervals and tests</h1>
+<p class="lede">The same experiment repeated many times makes two ideas visible that tend to stay abstract in class: what “95% confidence” means, and how often a test rejects a true hypothesis or accepts a false one.</p>
+
+<h2 id="mostra">What it shows</h2>
+<p>The module has three experiments.</p>
+<ul>
+<li><b>Confidence intervals for a mean.</b> From a population of a chosen shape (normal, uniform, exponential, lognormal, Laplace, Student’s t) m samples of n elements are drawn, and for each one the confidence interval for μ is computed. The last hundred intervals appear one under the other, next to the true mean: those that miss it are highlighted. Below, the percentage of intervals that contain μ approaches, or fails to approach, the stated level.</li>
+<li><b>Intervals for a proportion.</b> The same, with 0/1 data and three methods: Wald, Wilson and Clopper-Pearson. The exact coverage is computed by adding binomial probabilities, and compared with the simulated one.</li>
+<li><b>Test on a mean: errors and power.</b> You choose H₀: μ = μ₀ and generate the data with a true mean μ, equal to μ₀ or not. You see the distribution of the test statistic with its rejection region, the distribution of the p-values and the percentage of rejections, that is the type I error if μ = μ₀ and the power if μ ≠ μ₀. Results of successive runs accumulate on the theoretical power curve.</li>
+</ul>
+
+<h2 id="uso">How to use it</h2>
+<h3>The choices screen</h3>
+<ul>
+<li><b>What to simulate</b>: one of the three experiments.</li>
+<li><b>Population</b>: the shape of the distribution, the true mean μ and the standard deviation σ; for proportions, the true proportion p. All shapes are rescaled to the same mean and σ, so only the shape changes.</li>
+<li><b>The test</b>: μ₀, a two-sided or one-sided alternative, the t statistic (σ estimated) or z (σ known), level α.</li>
+<li><b>Samples</b>: n from 2 to 1,000, number of samples m, how many samples between chart updates, confidence level and interval method.</li>
+</ul>
+<h3>During the simulation</h3>
+<ul>
+<li>With “update every 1” and a low speed you see each interval appear; “Complete” jumps straight to the end.</li>
+<li>The table separates intervals that miss the true value “from below” and “from above”: with skewed populations the two numbers are very different.</li>
+<li>In the test, the power curve persists until you change n, σ, μ₀, the test, α or the shape: by changing only the true mean μ and repeating, you build the curve point by point.</li>
+</ul>
+
+<h2 id="didattica">Teaching suggestions</h2>
+<div class="tip"><h3>What 95% means</h3><p>With the normal and the t interval, start the simulation slowly and ask students to count the highlighted segments among the last hundred: about five. Then ask: “is the probability that this interval contains μ 95%?”. The right answer (no: it either contains it or not) emerges by itself from the chart.</p></div>
+<div class="tip"><h3>Why t and not z</h3><p>With n = 5 compare the t interval with the “normal with σ estimated” one: the latter covers about 88% instead of 95%. As n grows the difference disappears.</p></div>
+<div class="tip"><h3>The central limit theorem does not arrive at once</h3><p>With the lognormal and n = 10 the t interval covers less than stated, and nearly all the wrong intervals lie below the true value. With n = 100 it improves, but not completely.</p></div>
+<div class="tip"><h3>The Wald interval is a poor interval</h3><p>With p = 0.1 and n = 10 the 95% Wald interval covers 65% of the time; Wilson’s about 93%. Also try p = 0.5 with n = 40 and then p = 0.48: the exact coverage oscillates, and does not improve steadily as n grows.</p></div>
+<div class="tip"><h3>p-values under H₀ are uniform</h3><p>With μ = μ₀ the histogram of the p-values is flat: a p-value of 0.03 is not “rare” in itself, it happens 3% of the time. Then move μ: the histogram piles up near zero, the more so the larger n is.</p></div>
+<div class="tip"><h3>Building the power curve</h3><p>With n = 10, σ = 2, μ₀ = 10 fixed, repeat the test with μ = 10, 10.5, 11, 11.5, 12: the simulated points settle on the theoretical curve. Then double n and compare.</p></div>
+
+<h2 id="tecnica">Technical details</h2>
+<p>Intervals for the mean:</p>
+<div class="formula">x̄ ± t<sub>n−1; 1−α/2</sub> · s/√n &nbsp; · &nbsp; x̄ ± z<sub>1−α/2</sub> · s/√n &nbsp; · &nbsp; x̄ ± z<sub>1−α/2</sub> · σ/√n</div>
+<p>For normal data the coverage of the second is exactly 2F<sub>t; n−1</sub>(z) − 1. Intervals for a proportion, with p̂ = s/n:</p>
+<div class="formula">Wald: p̂ ± z√(p̂(1−p̂)/n) &nbsp; · &nbsp; Wilson: [p̂ + z²/2n ± z√(p̂(1−p̂)/n + z²/4n²)] / (1 + z²/n) &nbsp; · &nbsp; Clopper-Pearson: quantiles Beta(s, n−s+1) and Beta(s+1, n−s)</div>
+<p>The exact coverage is Σ P(S = s) over the s whose interval contains p, with S binomial. In the test, the theoretical power of the z test is explicit; that of the t test is obtained by integrating the rejection probability conditional on s over the χ² distribution of (n−1)s²/σ², that is with the noncentral t: both hold for normal data. Random numbers are generated with the multiplicative congruential generator shared by all modules; each shape is standardised to mean 0 and variance 1 and then rescaled to μ and σ.</p>
+
+<footer>Simul2000 · Simulations in Statistics · module added in 2026 to Marcello Chiodi’s program</footer>
+</article>
+</div>
+</div>
+<script>(()=>{const s=document.querySelector('.themesel'); if(!s||!window.simulTheme) return; const mark=()=>s.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.t===simulTheme.get()))); s.addEventListener('click',e=>{const b=e.target.closest('button'); if(b){simulTheme.set(b.dataset.t); mark();}}); mark();})();</script>
+
+</body>
+</html>

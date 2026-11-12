@@ -1,0 +1,1005 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>
+// tema dello sfondo: automatico (come il sistema), chiaro o scuro; la scelta vale per tutte le pagine di Simul2000.
+// Le pagine chiedono il tema con matchMedia('(prefers-color-scheme: dark)'): qui la risposta tiene conto della scelta fatta
+(() => {
+  const KEY = 'simul2000-tema'; let pref = 'auto';
+  try { pref = localStorage.getItem(KEY) || 'auto'; } catch (e) {}
+  const real = window.matchMedia.bind(window), sys = real('(prefers-color-scheme: dark)'), listeners = new Set();
+  const dark = () => pref === 'dark' || (pref === 'auto' && sys.matches);
+  const apply = () => { const r = document.documentElement; if (pref === 'auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', pref); };
+  const notify = () => { const ev = { matches: dark(), media: '(prefers-color-scheme: dark)' }; listeners.forEach(f => { try { f(ev); } catch (e) {} }); };
+  const fake = { media: '(prefers-color-scheme: dark)', onchange: null, get matches() { return dark(); },
+    addEventListener: (t, f) => listeners.add(f), removeEventListener: (t, f) => listeners.delete(f), addListener: f => listeners.add(f), removeListener: f => listeners.delete(f), dispatchEvent: () => true };
+  sys.addEventListener('change', () => { if (pref === 'auto') notify(); });
+  window.matchMedia = q => (/prefers-color-scheme:\s*dark/.test(q) ? fake : real(q));
+  window.simulTheme = { get: () => pref, set(v) { pref = v; try { localStorage.setItem(KEY, v); } catch (e) {} apply(); notify(); } };
+  apply();
+})();
+</script>
+
+
+<title>Simul2000 · intervalli di confidenza e test</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,500;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F5F6F8; --surface:#FFFFFF; --ink:#1D2229; --muted:#5F6875; --rule:#DDE1E6; --grid:#ECEFF2;
+  --bar:#E5A92B; --curve:#B3261E; --strip:#3C5A99; --accent:#3C5A99; --accent-ink:#FFFFFF;
+  --btn:#EEF1F4; --btn-ink:#1D2229; --sel:#E8EEF9; --err:#B3261E;
+  color-scheme:light; box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15181D; --surface:#1D2128; --ink:#E6E9ED; --muted:#9AA3AF; --rule:#2F353F; --grid:#262B33;
+    --bar:#E3A835; --curve:#FF7A6E; --strip:#8FB0F0; --accent:#8FB0F0; --accent-ink:#11151B;
+    --btn:#2A3039; --btn-ink:#E6E9ED; --sel:#25324A; --err:#FF8A80; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15181D; --surface:#1D2128; --ink:#E6E9ED; --muted:#9AA3AF; --rule:#2F353F; --grid:#262B33;
+  --bar:#E3A835; --curve:#FF7A6E; --strip:#8FB0F0; --accent:#8FB0F0; --accent-ink:#11151B;
+  --btn:#2A3039; --btn-ink:#E6E9ED; --sel:#25324A; --err:#FF8A80; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:400 15px/1.5 "IBM Plex Sans","Helvetica Neue",Arial,sans-serif}
+.wrap{max-width:78rem;margin:0 auto;padding:1.5rem 1.25rem 2.5rem}
+header{margin-bottom:1rem}
+h1{font:500 1.6rem/1.2 "IBM Plex Serif",Georgia,serif;margin:0 0 .25rem}
+header p{margin:0;color:var(--muted);max-width:66ch}
+.panel{background:var(--surface);border:1px solid var(--rule);border-radius:8px}
+h2{font:600 .95rem/1.3 "IBM Plex Sans",Arial,sans-serif;margin:0 0 .75rem}
+button{font:inherit;font-weight:500;border:1px solid var(--rule);background:var(--btn);color:var(--btn-ink);border-radius:6px;padding:.5rem .6rem;cursor:pointer}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+label.f{display:block;font-size:.88rem;color:var(--muted);margin:.6rem 0 .25rem}
+input[type=number],select{font:inherit;width:100%;padding:.35rem .5rem;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.row{display:flex;gap:.6rem;align-items:flex-end}
+.row > *{flex:1;min-width:0}
+.check{display:flex;gap:.5rem;align-items:center;font-size:.92rem;margin:.55rem 0 0;cursor:pointer}
+.check input{accent-color:var(--accent);width:1rem;height:1rem;margin:0}
+.hint{color:var(--muted);font-size:.82rem;margin:.35rem 0 0}
+.err{color:var(--err);font-size:.85rem;margin:.5rem 0 0;min-height:1.2em}
+[hidden]{display:none !important}
+
+.setup{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1rem;align-items:start}
+.setup .panel{padding:1rem 1.1rem}
+.dists{display:grid;grid-template-columns:1fr;gap:.25rem}
+.dist{display:flex;align-items:center;gap:.6rem;padding:.45rem .6rem;border-radius:6px;cursor:pointer;border:1px solid transparent}
+.dist:hover{background:var(--btn)}
+.dist input{accent-color:var(--accent);margin:0}
+.dist.on{background:var(--sel);border-color:var(--accent)}
+.dist small{color:var(--muted);margin-left:auto;font-size:.8rem}
+.params{margin-top:.75rem;border-top:1px solid var(--rule);padding-top:.25rem}
+.stack{display:flex;flex-direction:column;gap:1rem}
+.go{display:flex;justify-content:flex-end;gap:.6rem;margin-top:1rem}
+.go button{padding:.65rem 1.4rem}
+.swatches{display:flex;gap:.35rem;flex-wrap:wrap}
+.sw{width:1.7rem;height:1.7rem;border-radius:5px;border:1px solid var(--rule);padding:0;cursor:pointer}
+.sw[aria-pressed="true"]{outline:2px solid var(--ink);outline-offset:2px}
+.swrow{display:flex;align-items:center;gap:.6rem;margin-top:.5rem}
+.swrow span{width:4.5rem;font-size:.88rem;color:var(--muted)}
+
+.run{display:grid;grid-template-columns:minmax(0,1fr) 19rem;gap:1rem;align-items:start}
+.chart{padding:.75rem .75rem .5rem}
+.chart-head{display:flex;justify-content:space-between;align-items:center;gap:.5rem 1rem;padding:0 .25rem .4rem;flex-wrap:wrap}
+.countbox{display:flex;align-items:center;gap:.75rem;flex:1 1 22rem;min-width:0}
+.count{font-variant-numeric:tabular-nums;font-weight:600;font-size:1.05rem}
+.progress{flex:1;max-width:16rem;height:8px;background:var(--grid);border-radius:4px;overflow:hidden}
+.progress > i{display:block;height:100%;width:0;background:var(--accent)}
+.note{color:var(--muted);font-size:.82rem}
+.caption{color:var(--muted);font-size:.82rem;padding:0 .25rem}
+canvas{display:block;width:100%}
+#strip{height:58px;margin:.15rem 0 .35rem}
+#hist{height:min(54vh,28rem)}
+#small{height:9.5rem}
+.side{display:flex;flex-direction:column;gap:1rem}
+.side .panel{padding:1rem}
+.buttons{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.9rem}
+.speedval{font-variant-numeric:tabular-nums;font-size:.85rem;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:.9rem}
+th,td{padding:.28rem .2rem;text-align:right;border-bottom:1px solid var(--grid)}
+th:first-child,td:first-child{text-align:left}
+thead th{color:var(--muted);font-weight:500;font-size:.8rem}
+.foot{color:var(--muted);font-size:.82rem;margin-top:1rem;max-width:74ch}
+.big{font-variant-numeric:tabular-nums;font-weight:600}
+@media (max-width:54rem){
+  .setup,.run{grid-template-columns:1fr}
+  #hist{height:19rem}
+}
+/* barra superiore: ritorno al menu e scelta dello sfondo */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:.6rem 1rem;flex-wrap:wrap;margin:0 0 1.1rem}
+a.home{display:inline-flex;align-items:center;gap:.5rem;font:600 1.02rem/1.2 "IBM Plex Sans","Helvetica Neue",Arial,sans-serif;color:var(--accent-ink,var(--surface,#fff));background:var(--accent,var(--title,#3C5A99));border:1px solid var(--accent,var(--title,#3C5A99));border-radius:8px;padding:.6rem 1.1rem;text-decoration:none;box-shadow:0 2px 0 rgba(0,0,0,.18)}
+a.home:hover{filter:brightness(1.08)}
+a.home:active{transform:translateY(1px);box-shadow:none}
+a.home:focus-visible,.themesel button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.themesel{display:inline-flex;align-items:center;gap:.25rem;font-size:.85rem;color:var(--muted)}
+.themesel > span{margin-right:.35rem}
+.themesel button{font:inherit;font-size:.85rem;padding:.32rem .65rem;border:1px solid var(--rule);background:transparent;color:var(--ink);border-radius:6px;cursor:pointer}
+.themesel button[aria-pressed="true"]{background:var(--sel,rgba(60,90,153,.14));border-color:var(--accent,var(--title,#3C5A99));font-weight:600}
+/* cornice dell’applicazione, solo sugli schermi grandi: con lo sfondo scuro l’esterno è quasi nero e il bordo più chiaro */
+:root{--outer:color-mix(in srgb,var(--bg) 86%,var(--ink));--frame:var(--rule);--frame-sh:0 12px 40px rgba(0,0,0,.14);
+  --b-hi:rgba(255,255,255,.75);--b-lo:rgba(0,0,0,.07);--b-sh:rgba(20,30,50,.20);--field:#E1ECFB;--field-bd:#7A9CD2;--field-focus:#F2F7FE;--arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%232F4F8A' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");--btn2:#D9E6F8;--btn2-ink:#1B2945;--btn2-bd:#A6BDE2}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--outer:#090B0E;--frame:#3E4654;--frame-sh:0 0 0 1px rgba(255,255,255,.03),0 18px 50px rgba(0,0,0,.7);
+  --b-hi:rgba(255,255,255,.10);--b-lo:rgba(0,0,0,.35);--b-sh:rgba(0,0,0,.6);--field:#22324B;--field-bd:#5C7DB4;--field-focus:#2A3D5C;--arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23A9C4F0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");--btn2:#2A3B58;--btn2-ink:#E7EDF7;--btn2-bd:#4A5F86}}
+:root[data-theme="dark"]{--outer:#090B0E;--frame:#3E4654;--frame-sh:0 0 0 1px rgba(255,255,255,.03),0 18px 50px rgba(0,0,0,.7);
+  --b-hi:rgba(255,255,255,.10);--b-lo:rgba(0,0,0,.35);--b-sh:rgba(0,0,0,.6);--field:#22324B;--field-bd:#5C7DB4;--field-focus:#2A3D5C;--arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23A9C4F0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");--btn2:#2A3B58;--btn2-ink:#E7EDF7;--btn2-bd:#4A5F86}
+@media (min-width:60rem){
+  body{background:var(--outer)}
+  .wrap{width:calc(100% - 2.5rem);background:var(--bg);border:1px solid var(--frame);border-radius:16px;box-shadow:var(--frame-sh);margin:1.25rem auto 1.5rem;padding-left:1.75rem;padding-right:1.75rem}
+}
+/* tutto ciò che si può premere ha l’aspetto di un pulsante; pannelli e tabelle restano piatti */
+button:not(.sw){background-image:linear-gradient(180deg,var(--b-hi),transparent 55%,var(--b-lo));border-bottom-width:2px;border-bottom-color:color-mix(in srgb,var(--ink) 28%,var(--rule));box-shadow:inset 0 1px 0 var(--b-hi),0 1px 3px var(--b-sh);transition:transform .08s ease,box-shadow .08s ease}
+button:not(.sw):hover:not(:disabled){transform:translateY(-1px);box-shadow:inset 0 1px 0 var(--b-hi),0 3px 7px var(--b-sh)}
+button:not(.sw):active:not(:disabled){transform:translateY(1px);box-shadow:inset 0 2px 4px var(--b-lo)}
+button:disabled{background-image:none;box-shadow:none;transform:none}
+@media (prefers-reduced-motion: reduce){button:not(.sw){transition:none}button:not(.sw):hover:not(:disabled),button:not(.sw):active:not(:disabled){transform:none}}
+/* i campi in cui si scrive o si sceglie un valore hanno uno sfondo grigio, come caselle */
+/* campi da compilare: azzurri con bordo blu, disegnati senza lo stile di sistema del browser */
+input[type=number],select,textarea{-webkit-appearance:none;appearance:none;background-color:var(--field);border:1.5px solid var(--field-bd);border-radius:6px;box-shadow:inset 0 1px 3px var(--b-lo);color:var(--ink)}
+input[type=number]{-moz-appearance:textfield}
+select{background-image:var(--arrow);background-repeat:no-repeat;background-position:right .6rem center;background-size:12px 8px;padding-right:2rem}
+input[type=number]:focus,select:focus,textarea:focus{background-color:var(--field-focus);border-color:var(--accent,#3C5A99)}
+/* pulsanti secondari colorati (azzurro chiaro, o blu scuro con lo sfondo scuro); quelli principali restano nel colore d’accento */
+button:not(.sw):not(.primary):not(:disabled){background-color:var(--btn2);color:var(--btn2-ink);border-color:var(--btn2-bd);border-bottom-color:color-mix(in srgb,var(--btn2-bd) 65%,var(--ink))}
+button[aria-pressed="true"]:not(.sw):not(.primary),button[aria-selected="true"]:not(.sw):not(.primary){background-color:var(--accent,#3C5A99);color:var(--accent-ink,var(--surface,#fff));border-color:var(--accent,#3C5A99)}
+/* pulsante per salvare l’immagine e messaggio temporaneo */
+.topbar .savebtn{margin-left:auto}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 1.2rem);transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:.6rem 1rem;border-radius:8px;font-size:.9rem;max-width:min(90vw,34rem);z-index:50;box-shadow:0 6px 20px rgba(0,0,0,.3)}
+/* OK ripetuto in cima al quadro delle scelte */
+.gotop{display:flex;align-items:center;gap:.5rem 1rem;flex-wrap:wrap;margin:0 0 1rem}
+.gotop button{padding:.7rem 1.5rem;font-size:1.02rem}
+.langlink{display:inline-flex;align-items:center;font:600 .9rem/1.2 "IBM Plex Sans",Arial,sans-serif;color:var(--accent,var(--title,#3C5A99));text-decoration:none;border:1.5px solid var(--accent,var(--title,#3C5A99));border-radius:6px;padding:.32rem .7rem}
+.langlink:hover{background:var(--sel,rgba(60,90,153,.12))}
+.helpbtn{display:inline-flex;align-items:center;gap:.3rem;font:600 .9rem/1.2 "IBM Plex Sans",Arial,sans-serif;color:var(--accent,#3C5A99);text-decoration:none;border:1.5px solid var(--accent,#3C5A99);border-radius:6px;padding:.32rem .7rem}
+.helpbtn:hover{background:var(--sel,rgba(60,90,153,.12))}
+.topbar .helpbtn{margin-left:auto}
+.topbar .helpbtn + .savebtn{margin-left:0}
+
+/* modulo intervalli e test */
+.modes{display:grid;grid-template-columns:1fr;gap:.25rem}
+#stack{height:min(52vh,27rem)}
+#runcov{height:12rem}
+#pow{height:13rem}
+.sw2{display:inline-block;width:.8rem;height:.8rem;border-radius:2px;vertical-align:-1px;margin-right:.3rem}
+td.lab{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="topbar"><a class="home" id="homelink" href="index.html">← Menu iniziale</a><a class="langlink" id="langlink" href="en/simul_intervalli.html" hreflang="en" lang="en">English</a><a class="helpbtn" id="helplink" href="aiuto_intervalli.html">? Guida</a><button type="button" class="savebtn" id="saveimg" title="Salva un’immagine PNG con i grafici, i parametri e i risultati della simulazione">Salva immagine</button><div class="themesel" role="group" aria-label="Sfondo della pagina"><span>Sfondo</span><button type="button" data-t="auto">automatico</button><button type="button" data-t="light">chiaro</button><button type="button" data-t="dark">scuro</button></div></div>
+<header>
+  <h1 id="title">Intervalli di confidenza e test</h1>
+  <p id="subtitle">Si ripete molte volte lo stesso esperimento: si vede che cosa vuol dire “confidenza al 95%”, e quante volte un test sbaglia.</p>
+</header>
+
+<!-- ================= QUADRO DELLE SCELTE ================= -->
+<section id="setup" class="setup" aria-label="Scelte della simulazione">
+  <div class="gotop" style="grid-column:1/-1"><button type="button" class="primary" id="oktop">OK ▶</button><span class="hint" style="margin:0">oppure modifica prima le scelte qui sotto</span></div>
+  <div class="stack">
+    <div class="panel">
+      <h2>Che cosa simulare</h2>
+      <div class="modes" id="modes" role="radiogroup" aria-label="Tipo di simulazione">
+        <label class="dist"><input type="radio" name="mode" value="ci_mean" checked> <span>Intervalli di confidenza per la media</span></label>
+        <label class="dist"><input type="radio" name="mode" value="ci_prop"> <span>Intervalli di confidenza per una proporzione</span></label>
+        <label class="dist"><input type="radio" name="mode" value="test"> <span>Test sulla media: errori e potenza</span></label>
+      </div>
+    </div>
+    <div class="panel" id="poppanel">
+      <h2>Popolazione</h2>
+      <div id="popmean">
+        <label class="f" for="shape">Forma della distribuzione</label>
+        <select id="shape"></select>
+        <div class="row">
+          <div><label class="f" for="mu" id="mulab">Vera media μ</label><input type="number" id="mu" value="10" step="any"></div>
+          <div><label class="f" for="sigma">Scarto quadratico medio σ</label><input type="number" id="sigma" value="2" step="any" min="0.0001"></div>
+        </div>
+      </div>
+      <div id="popprop" hidden>
+        <label class="f" for="pp">Vera proporzione p (probabilità di successo)</label><input type="number" id="pp" value="0.1" step="any" min="0.001" max="0.999">
+        <p class="hint">Con p vicino a 0 o a 1 e n piccolo l’intervallo “di Wald” copre molto meno del dichiarato.</p>
+      </div>
+    </div>
+    <div class="panel" id="testpanel" hidden>
+      <h2>Il test</h2>
+      <div class="row">
+        <div><label class="f" for="mu0">Ipotesi nulla H₀: μ =</label><input type="number" id="mu0" value="10" step="any"></div>
+        <div><label class="f" for="alt">Ipotesi alternativa H₁</label>
+          <select id="alt"><option value="two">μ ≠ μ₀</option><option value="greater">μ &gt; μ₀</option><option value="less">μ &lt; μ₀</option></select></div>
+      </div>
+      <div class="row">
+        <div><label class="f" for="ttype">Statistica test</label>
+          <select id="ttype"><option value="t">t di Student (σ stimata con s)</option><option value="z">z (σ nota)</option></select></div>
+        <div><label class="f" for="alpha">Livello di significatività α</label>
+          <select id="alpha"><option value="0.01">0,01</option><option value="0.05" selected>0,05</option><option value="0.1">0,10</option></select></div>
+      </div>
+      <p class="hint">Con la vera media uguale a μ₀ si misura l’errore di I tipo; con una vera media diversa, la potenza. I risultati delle simulazioni successive restano sul grafico della potenza finché non si cambiano n, σ, μ₀, il test o la forma.</p>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="panel">
+      <h2>Campioni</h2>
+      <div class="row">
+        <div><label class="f" for="nel">Elementi per campione (n)</label><input type="number" id="nel" value="10" min="2" max="1000" step="1"></div>
+        <div><label class="f" for="m">Numero di campioni (m)</label>
+          <select id="m"><option value="100">100</option><option value="1000" selected>1.000</option><option value="10000">10.000</option><option value="100000">100.000</option></select></div>
+      </div>
+      <div class="row">
+        <div><label class="f" for="nparz">Aggiorna ogni (campioni)</label><input type="number" id="nparz" value="1" min="1" step="1"></div>
+        <div id="confbox"><label class="f" for="conf">Livello di confidenza</label>
+          <select id="conf"><option value="0.8">80%</option><option value="0.9">90%</option><option value="0.95" selected>95%</option><option value="0.99">99%</option></select></div>
+      </div>
+      <div id="methbox">
+        <label class="f" for="meth">Come si costruisce l’intervallo</label>
+        <select id="meth"></select>
+      </div>
+      <p class="hint">Con “aggiorna ogni 1” e una velocità bassa si vede nascere ogni intervallo.</p>
+    </div>
+    <div class="panel">
+      <h2>Generatore</h2>
+      <div class="row">
+        <div><label class="f" for="seed">Seme iniziale</label><input type="number" id="seed" value="552691563"></div>
+        <div style="flex:0 0 auto"><button id="newseed" type="button">Nuovo seme</button></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Colori</h2>
+      <select id="palette" aria-label="Combinazione di colori">
+        <option value="orig">Originale di Simul2000 (giallo e rosso)</option>
+        <option value="cb">Adatta ai daltonici (azzurro e arancio)</option>
+        <option value="custom">Personalizzata</option>
+      </select>
+      <div id="custom" hidden>
+        <div class="swrow"><span>Barre</span><div class="swatches" data-target="bar"></div></div>
+        <div class="swrow"><span>Curve</span><div class="swatches" data-target="curve"></div></div>
+        <div class="swrow"><span>Valori</span><div class="swatches" data-target="strip"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="grid-column:1/-1">
+    <p class="err" id="err" role="alert"></p>
+    <div class="go"><button class="primary" id="ok">OK, alla simulazione</button></div>
+  </div>
+</section>
+
+<!-- ================= QUADRO DELLA SIMULAZIONE ================= -->
+<section id="run" class="run" hidden aria-label="Simulazione">
+  <div class="maincol">
+    <section class="panel chart">
+      <div class="chart-head">
+        <div class="countbox"><span class="count" id="count"></span><div class="progress" aria-hidden="true"><i id="bar"></i></div></div>
+        <span class="note" id="outside"></span>
+      </div>
+      <div class="caption" id="cap1"></div>
+      <canvas id="stack" role="img" aria-label="Grafico principale"></canvas>
+    </section>
+    <section class="panel chart" style="margin-top:1rem">
+      <div class="caption" id="cap2"></div>
+      <canvas id="runcov" role="img" aria-label="Secondo grafico"></canvas>
+    </section>
+    <p class="foot" id="foot" style="margin-top:.8rem"></p>
+  </div>
+
+  <div class="side">
+    <section class="panel" aria-label="Comandi">
+      <div class="buttons">
+        <button class="primary" id="go">Avvia</button>
+        <button id="all">Completa</button>
+        <button id="reset">Ricomincia</button>
+        <button id="back">Scelte</button>
+      </div>
+      <label class="f" for="speed">Velocità</label>
+      <input type="range" id="speed" min="1" max="60" value="10">
+      <div class="speedval" id="speedval"></div>
+    </section>
+    <section class="panel" id="powpanel" hidden>
+      <h2 style="margin-bottom:.3rem">Funzione di potenza</h2>
+      <div class="caption" id="powcap" style="padding:0 0 .3rem"></div>
+      <canvas id="pow" role="img" aria-label="Funzione di potenza teorica e valori simulati"></canvas>
+    </section>
+    <section class="panel">
+      <h2 id="tabtitle">Risultati</h2>
+      <table><tbody id="tab"></tbody></table>
+      <p class="foot" id="tabnote" style="margin-top:.7rem"></p>
+    </section>
+  </div>
+</section>
+</div>
+
+<script>
+(() => {
+'use strict';
+// ================= funzioni comuni ai moduli di inferenza =================
+const $ = id => document.getElementById(id);
+const LOC = 'it-IT';
+const fmt = (x, d) => Number.isFinite(x) ? x.toLocaleString(LOC, { minimumFractionDigits: d, maximumFractionDigits: d }).replace('-', '−') : '–';
+const fmtp = x => Number.isFinite(x) ? x.toLocaleString(LOC, { maximumFractionDigits: 4 }).replace('-', '−') : '–';
+const fmtn = x => x.toLocaleString(LOC);
+const fmtpct = (x, d = 1) => Number.isFinite(x) ? fmt(100 * x, d) + '%' : '–';
+const num = id => parseFloat(String($(id).value).replace(',', '.'));
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function readNum(id, lo, hi, label, integer) {
+  const x = integer ? Math.round(num(id)) : num(id);
+  if (!Number.isFinite(x) || x < lo || x > hi) throw `${label}: scegli un valore fra ${fmtp(lo)} e ${fmtp(hi)}.`;
+  return x;
+}
+
+// ---------- funzioni speciali ----------
+function lgamma(x) {
+  if (x < 0.5) return Math.log(Math.PI / Math.abs(Math.sin(Math.PI * x))) - lgamma(1 - x);
+  x -= 1;
+  const c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+  let a = c[0]; const t = x + 7.5;
+  for (let i = 1; i < 9; i++) a += c[i] / (x + i);
+  return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(a);
+}
+// funzione di ripartizione della normale standard (erfc di W. J. Cody, errore relativo < 1e-14 circa)
+function pnorm(z) {
+  const x = Math.abs(z) / Math.SQRT2;
+  let r;
+  if (x < 0.5) {
+    const t = x * x;
+    const p = ((((0.185777706184603153 * t + 3.16112374387056560) * t + 113.864154151050156) * t + 377.485237685302021) * t + 3209.37758913846947);
+    const q = ((((t + 23.6012909523441209) * t + 244.024637934444173) * t + 1282.61652607737228) * t + 2844.23683343917062);
+    r = 1 - x * p / q;
+  } else if (x < 4) {
+    const P = [2.15311535474403846e-8, 0.564188496988670089, 8.88314979438837594, 66.1191906371416295, 298.635138197400131, 881.952221241769090, 1712.04761263407058, 2051.07837782607147, 1230.33935479799725];
+    const Q = [1, 15.7449261107098347, 117.693950891312499, 537.181101862009858, 1621.38957456669019, 3290.79923573345963, 4362.61909014324716, 3439.36767414372164, 1230.33935480374942];
+    let p = 0, q = 0; for (let i = 0; i < 9; i++) { p = p * x + P[i]; q = q * x + Q[i]; }
+    r = Math.exp(-x * x) * p / q;
+  } else {
+    const t = 1 / (x * x);
+    const P = [0.0163153871373020978, 0.305326634961232344, 0.360344899949804439, 0.125781726111229246, 0.0160837851487422766, 6.58749161529837803e-4];
+    const Q = [1, 2.56852019228982242, 1.87295284992346725, 0.527905102951428412, 0.0605183413124413191, 0.00233520497626869185];
+    let p = 0, q = 0; for (let i = 0; i < 6; i++) { p = p * t + P[i]; q = q * t + Q[i]; }
+    r = Math.exp(-x * x) / x * (0.564189583547756287 - t * p / q);
+  }
+  return z >= 0 ? 1 - r / 2 : r / 2;
+}
+const dnorm = z => Math.exp(-0.5 * z * z) / Math.sqrt(2 * Math.PI);
+// quantile della normale standard (Acklam, con un passo di Newton)
+function qnorm(p) {
+  if (p <= 0) return -Infinity; if (p >= 1) return Infinity;
+  const a = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02, 1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00];
+  const b = [-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02, 6.680131188771972e+01, -1.328068155288572e+01];
+  const c = [-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00, -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00];
+  const d = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00, 3.754408661907416e+00];
+  let x;
+  if (p < 0.02425) { const q = Math.sqrt(-2 * Math.log(p)); x = (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1); }
+  else if (p > 1 - 0.02425) { const q = Math.sqrt(-2 * Math.log(1 - p)); x = -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1); }
+  else { const q = p - 0.5, r = q * q; x = (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q / (((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1); }
+  const e = pnorm(x) - p; return x - e / dnorm(x);
+}
+// beta incompleta regolarizzata I_x(a, b): frazione continua (Numerical Recipes)
+function betacf(a, b, x) {
+  const FP = 1e-300; let qab = a + b, qap = a + 1, qam = a - 1, c = 1, d = 1 - qab * x / qap;
+  if (Math.abs(d) < FP) d = FP; d = 1 / d; let h = d;
+  for (let m = 1; m <= 300; m++) {
+    const m2 = 2 * m; let aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+    d = 1 + aa * d; if (Math.abs(d) < FP) d = FP; c = 1 + aa / c; if (Math.abs(c) < FP) c = FP; d = 1 / d; h *= d * c;
+    aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+    d = 1 + aa * d; if (Math.abs(d) < FP) d = FP; c = 1 + aa / c; if (Math.abs(c) < FP) c = FP; d = 1 / d;
+    const del = d * c; h *= del; if (Math.abs(del - 1) < 3e-15) break;
+  }
+  return h;
+}
+function pbeta(x, a, b) {
+  if (x <= 0) return 0; if (x >= 1) return 1;
+  const bt = Math.exp(lgamma(a + b) - lgamma(a) - lgamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+  return x < (a + 1) / (a + b + 2) ? bt * betacf(a, b, x) / a : 1 - bt * betacf(b, a, 1 - x) / b;
+}
+const dbeta = (x, a, b) => (x > 0 && x < 1) ? Math.exp((a - 1) * Math.log(x) + (b - 1) * Math.log(1 - x) - lgamma(a) - lgamma(b) + lgamma(a + b)) : 0;
+function bisect(f, lo, hi, it = 100) { for (let i = 0; i < it; i++) { const m = (lo + hi) / 2; if (f(m) < 0) lo = m; else hi = m; if (hi - lo < 1e-13 * (1 + Math.abs(m))) break; } return (lo + hi) / 2; }
+function qbeta(p, a, b) { if (p <= 0) return 0; if (p >= 1) return 1; return bisect(x => pbeta(x, a, b) - p, 0, 1, 80); }
+// t di Student
+function pt(t, df) {
+  if (!Number.isFinite(df) || df > 1e7) return pnorm(t);
+  const x = df / (df + t * t), tail = 0.5 * pbeta(x, df / 2, 0.5);
+  return t > 0 ? 1 - tail : tail;
+}
+const dt = (t, df) => Math.exp(lgamma((df + 1) / 2) - lgamma(df / 2) - 0.5 * Math.log(df * Math.PI) - (df + 1) / 2 * Math.log(1 + t * t / df));
+function qt(p, df) {
+  if (!Number.isFinite(df) || df > 1e7) return qnorm(p);
+  if (p === 0.5) return 0;
+  let hi = Math.max(1, Math.abs(qnorm(p)) * 2); while (pt(hi, df) < Math.max(p, 1 - p)) hi *= 2;
+  const x = bisect(t => pt(t, df) - Math.max(p, 1 - p), 0, hi);
+  return p > 0.5 ? x : -x;
+}
+// gamma incompleta regolarizzata P(a, x)
+function pgamma(x, a) {
+  if (x <= 0) return 0;
+  const gl = lgamma(a);
+  if (x < a + 1) { let ap = a, sum = 1 / a, del = sum; for (let n = 0; n < 1000; n++) { ap++; del *= x / ap; sum += del; if (Math.abs(del) < Math.abs(sum) * 1e-15) break; } return sum * Math.exp(-x + a * Math.log(x) - gl); }
+  const FP = 1e-300; let b = x + 1 - a, c = 1 / FP, d = 1 / b, h = d;
+  for (let i = 1; i < 1000; i++) { const an = -i * (i - a); b += 2; d = an * d + b; if (Math.abs(d) < FP) d = FP; c = b + an / c; if (Math.abs(c) < FP) c = FP; d = 1 / d; const del = d * c; h *= del; if (Math.abs(del - 1) < 1e-15) break; }
+  return 1 - Math.exp(-x + a * Math.log(x) - gl) * h;
+}
+const dgamma = (x, a, rate) => x > 0 ? Math.exp(a * Math.log(rate) + (a - 1) * Math.log(x) - rate * x - lgamma(a)) : 0;
+function qgamma(p, a, rate) {
+  if (p <= 0) return 0; let hi = (a + 10 * Math.sqrt(a) + 10); while (pgamma(hi, a) < p) hi *= 2;
+  return bisect(x => pgamma(x, a) - p, 0, hi) / rate;
+}
+
+// ---------- generatore di base ----------
+// congruenziale moltiplicativo di Park e Miller: a = 48271, m = 2^31 − 1
+let state = 1, spare = null;
+function setSeed(s) { state = (Math.abs(Math.floor(s)) % 2147483646) + 1; spare = null; }
+function unif() { state = (state * 48271) % 2147483647; return state / 2147483647; }
+function upos() { let u; do u = unif(); while (u <= 0 || u >= 1); return u; }
+function rnorm() { // Box-Muller
+  if (spare !== null) { const z = spare; spare = null; return z; }
+  const r = Math.sqrt(-2 * Math.log(upos())), t = 2 * Math.PI * unif();
+  spare = r * Math.sin(t); return r * Math.cos(t);
+}
+function rgamma1(a) { // gamma di forma a e scala 1: Marsaglia e Tsang (2000)
+  if (a < 1) return rgamma1(a + 1) * Math.pow(upos(), 1 / a);
+  const d = a - 1 / 3, c = 1 / Math.sqrt(9 * d);
+  for (;;) {
+    let x, v;
+    do { x = rnorm(); v = 1 + c * x; } while (v <= 0);
+    v = v * v * v; const u = upos();
+    if (u < 1 - 0.0331 * x ** 4) return d * v;
+    if (Math.log(u) < 0.5 * x * x + d * (1 - v + Math.log(v))) return d * v;
+  }
+}
+function rpois(l) { // inversione per λ piccolo, normale arrotondata a passi per λ grande
+  if (l < 50) { const u = unif(); let k = 0, p = Math.exp(-l), F = p; while (u > F && k < 5000) { k++; p *= l / k; F += p; } return k; }
+  // somma di Poisson più piccole: resta esatta
+  let s = 0, r = l; while (r > 40) { s += rpois(40); r -= 40; } return s + rpois(r);
+}
+
+// ---------- forme standardizzate (media 0 e varianza 1; la Cauchy ha mediana 0 e scala 1) ----------
+const E = Math.E;
+const SHAPES = [
+  { id: 'norm', name: 'Normale', r: rnorm, d: dnorm, med: 0 },
+  { id: 'unif', name: 'Uniforme', r: () => (unif() - 0.5) * Math.sqrt(12), d: x => Math.abs(x) <= Math.sqrt(3) ? 1 / Math.sqrt(12) : 0, med: 0 },
+  { id: 'exp', name: 'Esponenziale (asimmetrica)', r: () => -Math.log(upos()) - 1, d: x => x >= -1 ? Math.exp(-(x + 1)) : 0, med: Math.log(2) - 1 },
+  { id: 'lnorm', name: 'Lognormale (molto asimmetrica)', r: () => (Math.exp(rnorm()) - Math.sqrt(E)) / Math.sqrt((E - 1) * E),
+    d: x => { const y = x * Math.sqrt((E - 1) * E) + Math.sqrt(E); return y > 0 ? dnorm(Math.log(y)) / y * Math.sqrt((E - 1) * E) : 0; }, med: (1 - Math.sqrt(E)) / Math.sqrt((E - 1) * E) },
+  { id: 'lap', name: 'Laplace (code pesanti)', r: () => { const e = -Math.log(upos()) / Math.SQRT2; return unif() < 0.5 ? -e : e; }, d: x => Math.exp(-Math.SQRT2 * Math.abs(x)) / Math.SQRT2, med: 0 },
+  { id: 't3', name: 't di Student con 3 g.d.l. (code molto pesanti)', r: () => rnorm() / Math.sqrt(2 * rgamma1(1.5) / 3) / Math.sqrt(3), d: x => dt(x * Math.sqrt(3), 3) * Math.sqrt(3), med: 0 },
+  { id: 'cauchy', name: 'Cauchy (senza media né varianza)', r: () => Math.tan(Math.PI * (upos() - 0.5)), d: x => 1 / (Math.PI * (1 + x * x)), med: 0, noMoments: true }
+];
+
+// ---------- numeri tondi per gli assi ----------
+function nice(x) { const p = 10 ** Math.floor(Math.log10(x)), f = x / p; return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p; }
+function niceStep(span, k = 5) { const raw = span / k, p = 10 ** Math.floor(Math.log10(raw)), f = raw / p; return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p; }
+const dec = st => Math.max(0, -Math.floor(Math.log10(st) + 1e-9));
+
+// ---------- colori ----------
+const OKABE = [['#000000','nero'],['#0072B2','blu'],['#56B4E9','azzurro'],['#009E73','verde'],['#F0E442','giallo'],['#E69F00','arancio'],['#D55E00','vermiglio'],['#CC79A7','porpora']];
+const PRESETS = { cb: { bar: '#56B4E9', curve: '#D55E00', strip: '#0072B2' } };
+let colors = { palette: 'orig', bar: '#E69F00', curve: '#D55E00', strip: '#0072B2' };
+try { const s = JSON.parse(localStorage.getItem('simul2000-colori') || 'null'); if (s && s.palette) colors = Object.assign(colors, s); } catch (e) {}
+const C = {};
+let onColors = () => {};
+function readColors() {
+  const cs = getComputedStyle(document.documentElement);
+  ['grid','muted','rule','accent','ink','surface','bg'].forEach(nm => C[nm] = cs.getPropertyValue('--' + nm).trim());
+  if (colors.palette === 'orig') ['bar','curve','strip'].forEach(nm => C[nm] = cs.getPropertyValue('--' + nm).trim());
+  else if (colors.palette === 'cb') Object.assign(C, PRESETS.cb);
+  else Object.assign(C, { bar: colors.bar, curve: colors.curve, strip: colors.strip });
+  onColors();
+}
+function initColors() {
+  const save = () => { try { localStorage.setItem('simul2000-colori', JSON.stringify(colors)); } catch (e) {} };
+  const paint = () => {
+    document.querySelectorAll('.swatches').forEach(box => box.querySelectorAll('.sw').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.hex === colors[box.dataset.target]))));
+    $('palette').value = colors.palette; $('custom').hidden = colors.palette !== 'custom';
+  };
+  document.querySelectorAll('.swatches').forEach(box => {
+    const t = box.dataset.target;
+    OKABE.forEach(([hex, nm]) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'sw'; b.style.background = hex;
+      b.title = nm; b.setAttribute('aria-label', `${nm} per ${box.previousElementSibling.textContent.toLowerCase()}`);
+      b.onclick = () => { colors[t] = hex; save(); paint(); readColors(); };
+      b.dataset.hex = hex; box.appendChild(b);
+    });
+  });
+  $('palette').onchange = () => { colors.palette = $('palette').value; save(); paint(); readColors(); };
+  paint(); readColors();
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColors);
+}
+
+// ---------- disegno ----------
+function fit(cv) {
+  const ctx = cv.getContext('2d'), r = cv.getBoundingClientRect(), d = devicePixelRatio || 1;
+  const w = Math.round(r.width * d), h = Math.round(r.height * d);
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  ctx.setTransform(d, 0, 0, d, 0, 0); return [ctx, r.width, r.height];
+}
+// assi con griglia: restituisce le funzioni di trasformazione
+function axes(ctx, w, h, o) {
+  const small = o.small, L = o.L ?? (small ? 40 : 54), R = o.R ?? 12, T = o.T ?? 8, B = o.B ?? (small ? 22 : 30);
+  const pw = w - L - R, ph = h - T - B;
+  const PX = x => L + (x - o.x0) / (o.x1 - o.x0) * pw, PY = y => T + ph - (y - o.y0) / (o.y1 - o.y0) * ph;
+  ctx.clearRect(0, 0, w, h);
+  ctx.font = (small ? '10.5px' : '12px') + ' "IBM Plex Sans", Arial, sans-serif'; ctx.fillStyle = C.muted; ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
+  if (!o.noY) {
+    const st = o.yStep || niceStep(o.y1 - o.y0, small ? 3 : 5), dy = o.yDec ?? dec(st);
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (let y = Math.ceil((o.y0 - 1e-12) / st) * st; y <= o.y1 + 1e-12; y += st) {
+      const py = Math.round(PY(y)) + .5; ctx.beginPath(); ctx.moveTo(L, py); ctx.lineTo(L + pw, py); ctx.stroke();
+      const yy = Math.abs(y) < 1e-12 ? 0 : y; ctx.fillText(o.yFmt ? o.yFmt(yy) : fmt(yy, dy), L - 5, py);
+    }
+  }
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  const sx = o.xStep || niceStep(o.x1 - o.x0, small ? 4 : 8), dx = o.xDec ?? dec(sx);
+  for (let x = Math.ceil((o.x0 - 1e-9) / sx) * sx; x <= o.x1 + 1e-9; x += sx) {
+    const px = Math.round(PX(x)) + .5; ctx.beginPath(); ctx.moveTo(px, T); ctx.lineTo(px, T + ph); ctx.stroke();
+    const xx = Math.abs(x) < 1e-12 ? 0 : x; ctx.fillText(o.xFmt ? o.xFmt(xx) : fmt(xx, dx), px, T + ph + 5);
+  }
+  if (o.xlab) { ctx.textAlign = 'right'; ctx.fillText(o.xlab, L + pw, T + ph + (small ? 5 : 16) + (small ? 9 : 0)); }
+  ctx.strokeStyle = C.rule; ctx.beginPath(); ctx.moveTo(L, T + ph + .5); ctx.lineTo(L + pw, T + ph + .5); ctx.stroke();
+  return { PX, PY, L, R, T, B, pw, ph, clip() { ctx.save(); ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip(); } };
+}
+function curve(ctx, A, f, x0, x1, n = 400) {
+  ctx.beginPath(); let pen = false;
+  for (let j = 0; j <= n; j++) { const x = x0 + (x1 - x0) * j / n, y = f(x); if (!Number.isFinite(y)) { pen = false; continue; } const py = Math.max(A.T - 4, A.PY(y)); pen ? ctx.lineTo(A.PX(x), py) : ctx.moveTo(A.PX(x), py); pen = true; }
+  ctx.stroke();
+}
+function vline(ctx, A, x, color, dash, lw = 1.5) {
+  const px = Math.round(A.PX(x)) + .5; if (px < A.L - 1 || px > A.L + A.pw + 1) return;
+  ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = lw; if (dash) ctx.setLineDash(dash);
+  ctx.beginPath(); ctx.moveTo(px, A.T); ctx.lineTo(px, A.T + A.ph); ctx.stroke(); ctx.restore();
+}
+function hline(ctx, A, y, color, dash, lw = 1.5) {
+  const py = Math.round(A.PY(y)) + .5; ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = lw; if (dash) ctx.setLineDash(dash);
+  ctx.beginPath(); ctx.moveTo(A.L, py); ctx.lineTo(A.L + A.pw, py); ctx.stroke(); ctx.restore();
+}
+// piccola legenda in alto a destra: [[colore, testo, tipo]] con tipo 'line' | 'dash' | 'box' | 'dot'
+function legend(ctx, A, items, left) {
+  ctx.save(); ctx.font = '11.5px "IBM Plex Sans", Arial, sans-serif'; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  const wmax = Math.max(...items.map(i => ctx.measureText(i[1]).width)) + 30;
+  let x = left ? A.L + 10 : A.L + A.pw - wmax - 6, y = A.T + 12;
+  ctx.globalAlpha = .82; ctx.fillStyle = C.surface; ctx.fillRect(x - 6, A.T + 3, wmax + 8, items.length * 17 + 4); ctx.globalAlpha = 1;
+  for (const [col, txt, kind] of items) {
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 2; ctx.setLineDash(kind === 'dash' ? [5, 4] : kind === 'dot' ? [2, 3] : []);
+    if (kind === 'box') { ctx.globalAlpha = .55; ctx.fillRect(x, y - 5, 18, 10); ctx.globalAlpha = 1; }
+    else if (kind === 'pt') { ctx.beginPath(); ctx.arc(x + 9, y, 4, 0, 2 * Math.PI); ctx.fill(); }
+    else { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 18, y); ctx.stroke(); }
+    ctx.setLineDash([]); ctx.fillStyle = C.ink; ctx.fillText(txt, x + 24, y); y += 17;
+  }
+  ctx.restore();
+}
+// istogramma: conta i valori nelle classi
+function makeHist(x0, x1, nb) { return { x0, x1, nb, w: (x1 - x0) / nb, c: new Float64Array(nb), shown: new Float64Array(nb), n: 0, out: 0, yMax: null }; }
+function histAdd(H, x) { const b = Math.floor((x - H.x0) / H.w); if (b >= 0 && b < H.nb) H.c[b]++; else if (x === H.x1) H.c[H.nb - 1]++; else H.out++; H.n++; }
+function histReset(H) { H.c.fill(0); H.shown.fill(0); H.n = 0; H.out = 0; H.yMax = null; }
+// disegna le barre (in densità) che scivolano verso il valore attuale; restituisce gli assi
+function drawHistDensity(ctx, w, h, H, o) {
+  let hm = 0; const a = o.a ?? 1;
+  for (let i = 0; i < H.nb; i++) { const t = H.n ? H.c[i] / (H.n * H.w) : 0; H.shown[i] += (t - H.shown[i]) * a; hm = Math.max(hm, t); }
+  const yT = 1.12 * Math.max(hm, o.minTop || 0, 1e-12);
+  H.yMax = H.yMax === null ? yT : H.yMax + (yT - H.yMax) * a;
+  const A = axes(ctx, w, h, { x0: H.x0, x1: H.x1, y0: 0, y1: H.yMax, small: o.small, xlab: o.xlab, xStep: o.xStep, xFmt: o.xFmt });
+  if (o.before) o.before(A);
+  const bw = A.pw / H.nb, gap = bw > 5 ? 1 : 0;
+  for (let i = 0; i < H.nb; i++) if (H.shown[i] > 0) {
+    ctx.fillStyle = o.barColor ? o.barColor(H.x0 + (i + 0.5) * H.w) : C.bar;
+    const y0 = Math.max(A.T, A.PY(H.shown[i])); ctx.fillRect(A.L + i * bw + gap / 2, y0, bw - gap, A.T + A.ph - y0);
+  }
+  return A;
+}
+function hexA(col, a) { // colore con trasparenza, per riempimenti
+  const c = document.createElement('canvas').getContext('2d'); c.fillStyle = col; const s = c.fillStyle;
+  if (s.startsWith('#')) { const r = parseInt(s.slice(1, 3), 16), g = parseInt(s.slice(3, 5), 16), b = parseInt(s.slice(5, 7), 16); return `rgba(${r},${g},${b},${a})`; }
+  return s.replace(/rgba?\(([^)]+)\)/, (m, v) => `rgba(${v.split(',').slice(0, 3).join(',')},${a})`);
+}
+
+
+const SH = SHAPES.filter(s => !s.noMoments);
+SH.forEach((s, i) => { const o = document.createElement('option'); o.value = i; o.textContent = s.name; $('shape').appendChild(o); });
+const METH = {
+  ci_mean: [['t', 't di Student: x̄ ± t·s/√n (quello giusto)'], ['zs', 'normale con σ stimata: x̄ ± z·s/√n'], ['zk', 'normale con σ nota: x̄ ± z·σ/√n']],
+  ci_prop: [['wald', 'di Wald: p̂ ± z·√(p̂(1−p̂)/n)'], ['wilson', 'di Wilson (score)'], ['cp', 'di Clopper-Pearson (“esatto”)']]
+};
+const mode = () => document.querySelector('input[name=mode]:checked').value;
+function syncSetup() {
+  const md = mode();
+  document.querySelectorAll('#modes .dist').forEach(l => l.classList.toggle('on', l.querySelector('input').checked));
+  $('popmean').hidden = md === 'ci_prop'; $('popprop').hidden = md !== 'ci_prop';
+  $('testpanel').hidden = md !== 'test'; $('confbox').hidden = md === 'test'; $('methbox').hidden = md === 'test';
+  if (md === 'test' && +$('nparz').value === 1) $('nparz').value = 10;
+  $('mulab').textContent = md === 'test' ? 'Vera media μ (quella dei dati)' : 'Vera media μ';
+  if (md !== 'test') {
+    const keep = $('meth').value;
+    $('meth').innerHTML = METH[md].map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
+    if (METH[md].some(x => x[0] === keep)) $('meth').value = keep;
+  }
+}
+document.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener('change', syncSetup));
+$('newseed').onclick = () => { $('seed').value = 1 + Math.floor(Math.random() * 2147483645); };
+syncSetup(); initColors();
+
+// ================= stato =================
+let cfg, k, M, tstep, nparz, running = false, completing = false, acc = 0;
+let hit, missL, missR, sumLen, ring, trace, rej;
+const NSHOW = 100;
+let Hs, Hp;          // istogrammi della statistica test e dei p-value
+let powPts = [], powKey = '';
+let propCI = null, exactCov = NaN;
+
+function configure() {
+  const md = mode(), c = { md };
+  c.n = readNum('nel', 2, 1000, 'Elementi per campione', true);
+  M = +$('m').value;
+  if (c.n * M > 5e7) throw 'n × m supera 50 milioni di numeri: riduci n o il numero di campioni.';
+  tstep = Math.max(1, Math.round(M / 2000));
+  let q = Math.max(1, Math.min(M, Math.round(num('nparz')) || 1)); while (M % q) q--; nparz = q; $('nparz').value = q;
+  if (md === 'ci_prop') {
+    c.p = readNum('pp', 0.001, 0.999, 'Vera proporzione');
+  } else {
+    c.shape = SH[+$('shape').value]; c.mu = readNum('mu', -1e6, 1e6, 'Vera media'); c.sigma = readNum('sigma', 1e-6, 1e6, 'Scarto quadratico medio');
+  }
+  if (md === 'test') {
+    c.mu0 = readNum('mu0', -1e6, 1e6, 'μ₀'); c.alt = $('alt').value; c.tt = $('ttype').value; c.alpha = +$('alpha').value;
+    c.se = c.sigma / Math.sqrt(c.n); c.delta = (c.mu - c.mu0) / c.se; c.df = c.n - 1;
+    const q1 = c.alt === 'two' ? 1 - c.alpha / 2 : 1 - c.alpha;
+    c.crit = c.tt === 't' ? qt(q1, c.df) : qnorm(q1);
+    c.nullDens = c.tt === 't' ? (x => dt(x, c.df)) : dnorm;
+    const lo = Math.min(-4.5, c.delta - 4.5), hi = Math.max(4.5, c.delta + 4.5);
+    Hs = makeHist(Math.floor(lo), Math.ceil(hi), Math.round((Math.ceil(hi) - Math.floor(lo)) * 5));
+    Hp = makeHist(0, 1, 20);
+    c.power = power(c, c.mu);
+    const key = [c.n, c.sigma, c.mu0, c.alt, c.tt, c.alpha, c.shape.id].join('|');
+    if (key !== powKey) { powPts = []; powKey = key; }
+  } else {
+    c.conf = +$('conf').value; c.meth = $('meth').value; c.z = qnorm(1 - (1 - c.conf) / 2);
+    c.tq = qt(1 - (1 - c.conf) / 2, c.n - 1);
+    if (md === 'ci_prop') {
+      propCI = propIntervals(c); exactCov = 0;
+      for (let s = 0; s <= c.n; s++) if (propCI.lo[s] <= c.p && c.p <= propCI.hi[s]) exactCov += Math.exp(lbinom(c.n, s) + s * Math.log(c.p) + (c.n - s) * Math.log(1 - c.p));
+      c.theta = c.p; const sd = Math.sqrt(c.p * (1 - c.p) / c.n);
+      c.x0 = Math.max(0, c.p - Math.max(0.05, 4.5 * sd)); c.x1 = Math.min(1, c.p + Math.max(0.05, 4.5 * sd));
+    } else {
+      c.theta = c.mu; const hw = c.sigma / Math.sqrt(c.n) * Math.min(Math.max(c.tq, c.z) * 1.7, 9);
+      c.x0 = c.mu - hw; c.x1 = c.mu + hw;
+    }
+  }
+  cfg = c; setTexts();
+}
+const lbinom = (n, s) => lgamma(n + 1) - lgamma(s + 1) - lgamma(n - s + 1);
+// intervalli per la proporzione: dipendono solo dal numero di successi s, quindi si calcolano una volta per tutti gli s
+function propIntervals(c) {
+  const n = c.n, z = c.z, lo = new Float64Array(n + 1), hi = new Float64Array(n + 1), a = 1 - c.conf;
+  for (let s = 0; s <= n; s++) {
+    const ph = s / n;
+    if (c.meth === 'wald') { const h = z * Math.sqrt(ph * (1 - ph) / n); lo[s] = ph - h; hi[s] = ph + h; }
+    else if (c.meth === 'wilson') { const z2 = z * z, d = 1 + z2 / n, ctr = (ph + z2 / (2 * n)) / d, h = z * Math.sqrt(ph * (1 - ph) / n + z2 / (4 * n * n)) / d; lo[s] = ctr - h; hi[s] = ctr + h; }
+    else { lo[s] = s === 0 ? 0 : qbeta(a / 2, s, n - s + 1); hi[s] = s === n ? 1 : qbeta(1 - a / 2, s + 1, n - s); }
+  }
+  return { lo, hi };
+}
+// potenza teorica, per dati normali: con z è esplicita; con t si integra sulla distribuzione di s
+function power(c, mu) {
+  const d = (mu - c.mu0) / c.se, k = c.crit;
+  const rejGiven = f => c.alt === 'two' ? pnorm(-k * f - d) + 1 - pnorm(k * f - d) : c.alt === 'greater' ? 1 - pnorm(k * f - d) : pnorm(-k * f - d);
+  if (c.tt === 'z') return rejGiven(1);
+  // V = (n−1)s²/σ² ~ chi²(ν); con u = √V la densità di u è 2u·f(u²), finita anche per ν = 1
+  const nu = c.df, U = Math.sqrt(nu + 12 * Math.sqrt(2 * nu) + 40), N = 600, h = U / N;
+  const lc = Math.log(2) - (nu / 2) * Math.log(2) - lgamma(nu / 2);
+  let s = 0;
+  for (let i = 0; i <= N; i++) {
+    const u = i * h, f = u === 0 ? (nu === 1 ? Math.exp(lc) : 0) : Math.exp(lc + (nu - 1) * Math.log(u) - u * u / 2);
+    const w = i === 0 || i === N ? 1 : i % 2 ? 4 : 2;
+    s += w * f * rejGiven(u / Math.sqrt(nu));
+  }
+  return Math.min(1, s * h / 3);
+}
+function setTexts() {
+  const c = cfg, md = c.md;
+  const sname = c.shape ? c.shape.name.replace(/ \(.*\)$/, '') : '';
+  if (md === 'ci_mean') {
+    $('title').textContent = `Intervalli per la media: ${sname}, μ = ${fmtp(c.mu)}, σ = ${fmtp(c.sigma)}`;
+    $('subtitle').textContent = `${fmtn(M)} campioni di ${c.n} elementi; intervalli al ${Math.round(100 * c.conf)}% ${METH.ci_mean.find(x => x[0] === c.meth)[1].replace(/:.*$/, '').replace(/ \(.*\)$/, '')}.`;
+  } else if (md === 'ci_prop') {
+    $('title').textContent = `Intervalli per una proporzione: p = ${fmtp(c.p)}`;
+    $('subtitle').textContent = `${fmtn(M)} campioni di ${c.n} prove; intervalli al ${Math.round(100 * c.conf)}% ${METH.ci_prop.find(x => x[0] === c.meth)[1].replace(/:.*$/, '')}.`;
+  } else {
+    const altS = { two: '≠', greater: '>', less: '<' }[c.alt];
+    $('title').textContent = `Test ${c.tt === 't' ? 't' : 'z'}: H₀: μ = ${fmtp(c.mu0)} contro H₁: μ ${altS} ${fmtp(c.mu0)}`;
+    $('subtitle').textContent = `${fmtn(M)} campioni di ${c.n} elementi da una ${sname} con μ = ${fmtp(c.mu)}, σ = ${fmtp(c.sigma)}; α = ${fmtp(c.alpha)}.`;
+  }
+  $('powpanel').hidden = md !== 'test';
+  if (md === 'test') {
+    $('cap1').textContent = `Distribuzione simulata della statistica test, con la sua distribuzione sotto H₀ (curva). La zona colorata è la regione di rifiuto: le barre che vi cadono sono i rifiuti di H₀.`;
+    $('cap2').textContent = `Distribuzione dei p-value. Se H₀ è vera è uniforme (linea tratteggiata): ogni intervallo di p-value ha la stessa probabilità. Le barre a sinistra di α sono i rifiuti.`;
+    $('powcap').textContent = `Curva: potenza teorica per dati normali. Punti: rifiuti simulati, con ±2 errori standard.`;
+    $('foot').textContent = c.tt === 't'
+      ? 'La statistica è t = (x̄ − μ₀)/(s/√n), con n − 1 gradi di libertà. Con dati non normali e n piccolo la vera probabilità di errore di I tipo può allontanarsi da α: lo si vede con la lognormale.'
+      : 'La statistica è z = (x̄ − μ₀)/(σ/√n), con σ nota. La potenza teorica è esatta per dati normali, approssimata negli altri casi.';
+  } else {
+    $('cap1').textContent = `Gli ultimi ${NSHOW} intervalli, il più recente in alto. La linea tratteggiata è il vero valore.`;
+    $('cap2').textContent = `Percentuale di intervalli che contengono il vero valore, al crescere del numero di campioni. La fascia è il livello nominale ± 2 errori standard: se l’intervallo è “onesto” la linea ci resta dentro quasi sempre.`;
+    $('foot').textContent = md === 'ci_prop'
+      ? 'Per una proporzione la copertura esatta si può calcolare sommando le probabilità binomiali dei numeri di successi per cui l’intervallo contiene p: oscilla al variare di p e di n, e per l’intervallo di Wald resta spesso molto sotto il livello dichiarato.'
+      : 'Il livello di confidenza è una proprietà del metodo, non del singolo intervallo: un intervallo già calcolato o contiene μ o non la contiene. Al 95%, a lungo andare circa 95 intervalli su 100 la contengono.';
+  }
+}
+function reset() {
+  setSeed(num('seed') || 1);
+  k = 0; hit = missL = missR = 0; sumLen = 0; rej = 0; ring = []; trace = [];
+  if (cfg.md === 'test') { histReset(Hs); histReset(Hp); }
+  running = false; completing = false; acc = 0;
+  $('go').textContent = 'Avvia'; $('go').disabled = false; $('all').disabled = false;
+  updateText(); updateSpeedText();
+}
+function batch(q, quiet) {
+  q = Math.min(q, M - k); const c = cfg, n = c.n;
+  for (let j = 0; j < q; j++) {
+    if (c.md === 'ci_prop') {
+      let s = 0; for (let i = 0; i < n; i++) if (unif() < c.p) s++;
+      const lo = propCI.lo[s], hi = propCI.hi[s]; record(lo, hi, s / n);
+    } else {
+      let s = 0, ss = 0; const r = c.shape.r;
+      for (let i = 0; i < n; i++) { const x = c.mu + c.sigma * r(); s += x; ss += x * x; }
+      const xm = s / n, sd = Math.sqrt(Math.max(0, (ss - n * xm * xm) / (n - 1)));
+      if (c.md === 'test') {
+        const st = (xm - c.mu0) / ((c.tt === 't' ? sd : c.sigma) / Math.sqrt(n));
+        const F = c.tt === 't' ? pt(st, c.df) : pnorm(st);
+        const p = c.alt === 'two' ? 2 * Math.min(F, 1 - F) : c.alt === 'greater' ? 1 - F : F;
+        if (p <= c.alpha) rej++;
+        histAdd(Hs, st); histAdd(Hp, Math.min(p, 1));
+      } else {
+        const h = c.meth === 't' ? c.tq * sd / Math.sqrt(n) : c.meth === 'zs' ? c.z * sd / Math.sqrt(n) : c.z * c.sigma / Math.sqrt(n);
+        record(xm - h, xm + h, xm);
+      }
+    }
+    k++;
+    if (c.md !== 'test' && (k % tstep === 0 || k === M)) trace.push([k, hit / k]);
+  }
+  if (c.md === 'test') {
+    const i = powPts.findIndex(p => p.mu === c.mu); const pt0 = { mu: c.mu, r: rej / k, k };
+    if (i >= 0) powPts[i] = pt0; else powPts.push(pt0);
+  }
+  if (k >= M) { running = false; completing = false; $('go').textContent = 'Fatto'; $('go').disabled = true; $('all').disabled = true; }
+  if (!quiet) updateText();
+}
+function record(lo, hi, est) {
+  const th = cfg.theta, ok = lo <= th && th <= hi;
+  if (ok) hit++; else if (hi < th) missL++; else missR++;
+  sumLen += hi - lo;
+  ring.push({ lo, hi, est, ok }); if (ring.length > NSHOW) ring.shift();
+}
+function row(lab, a, b) { return `<tr><td class="lab">${lab}</td><td>${a}</td>${b !== undefined ? `<td>${b}</td>` : ''}</tr>`; }
+function updateText() {
+  const c = cfg;
+  $('count').textContent = `${fmtn(k)} campioni su ${fmtn(M)}`;
+  $('bar').style.width = (100 * k / M) + '%';
+  $('outside').textContent = '';
+  let h = '';
+  if (c.md === 'test') {
+    const isNull = c.mu === c.mu0, lab = isNull ? 'Errore di I tipo (rifiuto di H₀ vera)' : 'Potenza (rifiuto di H₀ falsa)';
+    $('tabtitle').textContent = lab;
+    const r = k ? rej / k : NaN, se = k ? Math.sqrt(r * (1 - r) / k) : NaN;
+    h += `<tr><th></th><th>simulato</th><th>teorico</th></tr>`;
+    h += row('Rifiuti di H₀', fmtpct(r), fmtpct(isNull ? c.alpha : c.power));
+    h += row('Errore standard Monte Carlo', fmtpct(se, 2), '');
+    if (!isNull) h += row('Errore di II tipo (accetto H₀ falsa)', fmtpct(1 - r), fmtpct(1 - c.power));
+    h += row('Spostamento standardizzato δ = (μ − μ₀)/(σ/√n)', fmt(c.delta, 3), '');
+    h += row('Valore critico', fmt(c.crit, 3), '');
+    $('tabnote').textContent = c.shape.id === 'norm' ? '' : 'I valori teorici valgono per dati normali: con questa forma sono solo un’approssimazione.';
+  } else {
+    $('tabtitle').textContent = 'Copertura degli intervalli';
+    const cov = k ? hit / k : NaN;
+    let theo = NaN, theoLab = '';
+    if (c.md === 'ci_prop') { theo = exactCov; theoLab = 'esatta (binomiale)'; }
+    else if (c.meth === 'zs') { theo = 2 * pt(c.z, c.n - 1) - 1; theoLab = 'per dati normali'; }
+    else { theo = c.conf; theoLab = c.shape.id === 'norm' ? 'esatta' : 'per dati normali'; }
+    h += row('Livello nominale', fmtpct(c.conf, 0));
+    h += row(`Copertura teorica (${theoLab})`, fmtpct(theo, 2));
+    h += row('Copertura simulata', `<span class="big">${fmtpct(cov)}</span>`);
+    h += row('Intervalli che contengono il vero valore', `${fmtn(hit)} / ${fmtn(k)}`);
+    h += row('<span class="sw2" style="background:var(--err)"></span>Mancati: tutto sotto il vero valore', fmtn(missL));
+    h += row('<span class="sw2" style="background:var(--err)"></span>Mancati: tutto sopra il vero valore', fmtn(missR));
+    h += row('Lunghezza media', k ? fmt(sumLen / k, 4) : '–');
+    if (c.md === 'ci_mean' && c.meth === 'zk') h += row('Lunghezza (fissa) 2zσ/√n', fmt(2 * c.z * c.sigma / Math.sqrt(c.n), 4));
+    $('tabnote').textContent = (c.md === 'ci_mean' && c.shape.id !== 'norm' && c.shape.id !== 'unif') ? 'Con una distribuzione asimmetrica gli intervalli mancano il vero valore più spesso da una parte che dall’altra: guarda le due righe dei mancati.' : '';
+  }
+  $('tab').innerHTML = h;
+}
+const ups = () => +$('speed').value;
+function updateSpeedText() { const secs = Math.ceil(M / nparz) / ups(); $('speedval').textContent = `${ups()} aggiornamenti al secondo · circa ${secs < 1 ? 'meno di 1' : fmtn(Math.round(secs))} s in tutto`; }
+
+// ================= disegno =================
+function drawStack() {
+  const [ctx, w, h] = fit($('stack')), c = cfg;
+  const A = axes(ctx, w, h, { x0: c.x0, x1: c.x1, y0: 0, y1: NSHOW, noY: true, L: 14, xlab: c.md === 'ci_prop' ? 'p' : 'μ' });
+  A.clip();
+  const dy = A.ph / NSHOW, lw = Math.max(1, Math.min(3, dy * 0.55));
+  for (let i = 0; i < ring.length; i++) {
+    const I = ring[ring.length - 1 - i], y = A.T + (i + 0.5) * dy;
+    ctx.strokeStyle = I.ok ? C.strip : C.curve; ctx.fillStyle = ctx.strokeStyle; ctx.lineWidth = I.ok ? lw : lw + 0.6;
+    ctx.globalAlpha = i === 0 ? 1 : I.ok ? 0.75 : 1;
+    let x0 = A.PX(I.lo), x1 = A.PX(I.hi); if (x1 - x0 < 4) { const m = (x0 + x1) / 2; x0 = m - 2; x1 = m + 2; } // intervalli di lunghezza nulla: un trattino
+    ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+    if (dy > 3) { ctx.beginPath(); ctx.arc(A.PX(I.est), y, Math.min(3, dy * 0.45), 0, 2 * Math.PI); ctx.fill(); }
+  }
+  ctx.globalAlpha = 1; ctx.restore();
+  vline(ctx, A, c.theta, C.ink, [5, 4], 1.5);
+  legend(ctx, A, [[C.strip, 'contiene il vero valore', 'line'], [C.curve, 'non lo contiene', 'line']]);
+  if (ring.length) { ctx.fillStyle = C.ink; ctx.font = '600 11px "IBM Plex Sans", Arial, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('▸', 2, A.T + dy / 2); }
+}
+function drawTrace() {
+  const [ctx, w, h] = fit($('runcov')), c = cfg;
+  const lo = Math.max(0, Math.min(c.conf - 0.15, ...trace.slice(-400).map(t => t[1]))), y0 = Math.floor(lo * 20) / 20;
+  const A = axes(ctx, w, h, { x0: 0, x1: M, y0, y1: 1, xFmt: x => fmtn(x), yFmt: y => fmt(100 * y, 0) + '%', xlab: 'campioni' });
+  A.clip();
+  // fascia: livello nominale ± 2 errori standard di una proporzione su k prove
+  ctx.fillStyle = hexA(C.strip, 0.13); ctx.beginPath();
+  const N = 200; for (let j = 0; j <= N; j++) { const kk = Math.max(1, M * j / N), s = 2 * Math.sqrt(c.conf * (1 - c.conf) / kk); const x = A.PX(kk), y = A.PY(Math.min(1, c.conf + s)); j ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+  for (let j = N; j >= 0; j--) { const kk = Math.max(1, M * j / N), s = 2 * Math.sqrt(c.conf * (1 - c.conf) / kk); ctx.lineTo(A.PX(kk), A.PY(Math.max(0, c.conf - s))); }
+  ctx.fill(); ctx.restore();
+  hline(ctx, A, c.conf, C.muted, [5, 4], 1.2);
+  A.clip(); ctx.strokeStyle = C.curve; ctx.lineWidth = 2; ctx.beginPath();
+  const step = Math.max(1, Math.floor(trace.length / 1500));
+  for (let i = 0; i < trace.length; i += step) { const [kk, r] = trace[i]; i ? ctx.lineTo(A.PX(kk), A.PY(r)) : ctx.moveTo(A.PX(kk), A.PY(r)); }
+  if (trace.length) { const [kk, r] = trace[trace.length - 1]; ctx.lineTo(A.PX(kk), A.PY(r)); }
+  ctx.stroke(); ctx.restore();
+}
+function drawTest(a) {
+  const c = cfg;
+  { // statistica test
+    const [ctx, w, h] = fit($('stack'));
+    const top = Math.max(...Array.from({ length: 200 }, (_, j) => c.nullDens(Hs.x0 + (Hs.x1 - Hs.x0) * j / 199)));
+    const inRej = x => c.alt === 'two' ? Math.abs(x) >= c.crit : c.alt === 'greater' ? x >= c.crit : x <= -c.crit;
+    const A = drawHistDensity(ctx, w, h, Hs, { a, minTop: top, xlab: c.tt === 't' ? 't' : 'z',
+      barColor: x => inRej(x) ? C.curve : C.bar,
+      before: A => { ctx.fillStyle = hexA(C.curve, 0.10);
+        const z0 = A.PX(-c.crit), z1 = A.PX(c.crit);
+        if (c.alt !== 'greater') ctx.fillRect(A.L, A.T, Math.max(0, z0 - A.L), A.ph);
+        if (c.alt !== 'less') ctx.fillRect(z1, A.T, Math.max(0, A.L + A.pw - z1), A.ph); } });
+    A.clip(); ctx.strokeStyle = C.ink; ctx.lineWidth = 2; curve(ctx, A, c.nullDens, Hs.x0, Hs.x1); ctx.restore();
+    legend(ctx, A, [[C.ink, 'distribuzione sotto H₀', 'line'], [C.curve, 'rifiuto di H₀', 'box'], [C.bar, 'accetto H₀', 'box']]);
+  }
+  { // p-value
+    const [ctx, w, h] = fit($('runcov'));
+    const A = drawHistDensity(ctx, w, h, Hp, { a, minTop: 1.3, xlab: 'p-value', xStep: 0.1, barColor: x => x < c.alpha ? C.curve : C.bar });
+    hline(ctx, A, 1, C.ink, [5, 4], 1.2); vline(ctx, A, c.alpha, C.curve, null, 1.5);
+  }
+  { // funzione di potenza
+    const [ctx, w, h] = fit($('pow'));
+    const span = c.se * Math.max(4, Math.abs(c.delta) + 1.5), x0 = c.mu0 - span, x1 = c.mu0 + span;
+    const A = axes(ctx, w, h, { x0, x1, y0: 0, y1: 1, small: true, yStep: 0.25, yFmt: y => fmt(y, 2), xlab: 'μ' });
+    hline(ctx, A, c.alpha, C.muted, [3, 3], 1);
+    A.clip(); ctx.strokeStyle = C.ink; ctx.lineWidth = 1.8; curve(ctx, A, x => power(c, x), x0, x1, 120); ctx.restore();
+    vline(ctx, A, c.mu0, C.muted, [2, 3], 1);
+    for (const P of powPts) {
+      const se = Math.sqrt(P.r * (1 - P.r) / P.k), px = A.PX(P.mu); if (px < A.L || px > A.L + A.pw) continue;
+      ctx.strokeStyle = C.curve; ctx.fillStyle = C.curve; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(px, A.PY(Math.min(1, P.r + 2 * se))); ctx.lineTo(px, A.PY(Math.max(0, P.r - 2 * se))); ctx.stroke();
+      ctx.beginPath(); ctx.arc(px, A.PY(P.r), P.mu === c.mu ? 4.5 : 3.5, 0, 2 * Math.PI); ctx.fill();
+    }
+  }
+}
+function draw(dt) {
+  if ($('run').hidden) return;
+  const a = reduce ? 1 : 1 - Math.exp(-dt / 0.09);
+  if (cfg.md === 'test') drawTest(a); else { drawStack(); drawTrace(); }
+}
+let prev = performance.now();
+function frame(now) {
+  const dt = Math.min(0.1, (now - prev) / 1000); prev = now;
+  if (completing) { const t0 = performance.now(), chunk = Math.max(1, Math.ceil(20000 / cfg.n)); while (completing && performance.now() - t0 < 30) batch(chunk, true); updateText(); }
+  if (running) { acc += dt; const step = 1 / ups(); let c = 0; while (acc >= step && running && c < 4) { batch(nparz); acc -= step; c++; } }
+  draw(dt); requestAnimationFrame(frame);
+}
+
+// ================= comandi =================
+const T0 = $('title').textContent, S0 = $('subtitle').textContent;
+$('ok').onclick = () => {
+  try { configure(); } catch (e) { $('err').textContent = typeof e === 'string' ? e : 'Errore nei valori scelti.'; console.error(e); return; }
+  $('err').textContent = ''; reset();
+  $('setup').hidden = true; $('run').hidden = false; window.scrollTo(0, 0);
+};
+$('back').onclick = () => { running = false; completing = false; $('run').hidden = true; $('setup').hidden = false; $('title').textContent = T0; $('subtitle').textContent = S0; };
+$('go').onclick = () => { if (k >= M) return; running = !running; acc = 1 / ups(); $('go').textContent = running ? 'Pausa' : 'Riprendi'; };
+$('all').onclick = () => { if (k >= M) return; running = false; completing = true; $('go').textContent = 'Calcolo…'; $('go').disabled = true; $('all').disabled = true; };
+$('reset').onclick = reset;
+$('speed').addEventListener('input', updateSpeedText);
+requestAnimationFrame(frame);
+window.__simul = { configure, reset, batch, power, propIntervals, get st() { return { cfg, k, hit, rej, missL, missR, exactCov, powPts }; } };
+})();
+</script>
+<script>(()=>{const s=document.querySelector('.themesel'); if(!s||!window.simulTheme) return; const mark=()=>s.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.t===simulTheme.get()))); s.addEventListener('click',e=>{const b=e.target.closest('button'); if(b){simulTheme.set(b.dataset.t); mark();}}); mark();})();</script>
+<script>
+// salva un’immagine PNG con i grafici visibili disposti come sullo schermo, più titolo, parametri e tabelle dei risultati
+(() => {
+  const btn = document.getElementById('saveimg'); if (!btn) return;
+  const toast = msg => { const d = document.createElement('div'); d.className = 'toast'; d.setAttribute('role', 'status'); d.textContent = msg; document.body.appendChild(d); setTimeout(() => d.remove(), 4200); };
+  const visible = el => el && el.offsetParent !== null && el.getBoundingClientRect().width > 0;
+  btn.addEventListener('click', () => {
+    const ov = document.getElementById('ov');
+    const root = ov && !ov.hidden ? ov : (document.getElementById('run') || document.querySelector('.layout'));
+    if (!root || root.hidden) { toast('Prima avvia una simulazione: si salva il quadro dei risultati.'); return; }
+    const cvs = [...root.querySelectorAll('canvas')].filter(visible);
+    if (!cvs.length) { toast('Non ci sono grafici da salvare.'); return; }
+    // anche le finestre di testo e i titoli delle finestre, nella loro posizione
+    const pres = [...root.querySelectorAll('pre')].filter(visible), titles = [...root.querySelectorAll('.wtitle, .htitle')].filter(visible);
+    const R = [...cvs, ...pres, ...titles].map(c => c.getBoundingClientRect());
+    const x0 = Math.min(...R.map(r => r.left)), y0 = Math.min(...R.map(r => r.top)), x1 = Math.max(...R.map(r => r.right)), y1 = Math.max(...R.map(r => r.bottom));
+    const cs = getComputedStyle(document.documentElement), v = n => cs.getPropertyValue('--' + n).trim();
+    const bg = v('bg') || '#fff', ink = v('ink') || '#000', muted = v('muted') || '#666', rule = v('rule') || '#ccc';
+    // testi: titolo, parametri, e righe delle tabelle e dei riepiloghi visibili
+    const h1 = document.querySelector('#title') || document.querySelector('h1'), sub = document.querySelector('#subtitle') || document.querySelector('header p');
+    const lines = [];
+    ['count', 'eq', 'outside', 'ci', 'cov', 'ratio', 'chi'].forEach(id => { const e = document.getElementById(id); if (visible(e) && e.textContent.trim()) lines.push(e.textContent.trim()); });
+    // tabelle in colonne allineate: la prima a sinistra, le altre a destra
+    root.querySelectorAll('table').forEach(tb => { if (!visible(tb) || tb.closest('.freqwrap')) return;
+      const rows = [...tb.querySelectorAll('tr')].map(tr => [...tr.children].map(td => td.textContent.trim())).filter(c => c.some(Boolean)); if (!rows.length) return;
+      const nc = Math.max(...rows.map(r => r.length)), w = Array.from({ length: nc }, (_, j) => Math.max(...rows.map(r => (r[j] || '').length)));
+      lines.push(''); rows.forEach(r => lines.push(w.map((wj, j) => j ? (r[j] || '').padStart(wj) : (r[j] || '').padEnd(wj)).join('   '))); });
+    const s = 2, W = Math.max(x1 - x0, 760), pad = 24, headH = 74, lh = 18, footH = lines.length * lh + 46;
+    const out = document.createElement('canvas'); out.width = (W + 2 * pad) * s; out.height = (headH + (y1 - y0) + footH + pad) * s;
+    const ctx = out.getContext('2d'); ctx.scale(s, s);
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, out.width, out.height);
+    ctx.fillStyle = ink; ctx.font = '500 21px "IBM Plex Serif", Georgia, serif'; ctx.textBaseline = 'top';
+    ctx.fillText(h1 ? h1.textContent.trim() : document.title, pad, pad - 4, W);
+    ctx.fillStyle = muted; ctx.font = '13px "IBM Plex Sans", Arial, sans-serif';
+    if (sub) ctx.fillText(sub.textContent.trim(), pad, pad + 26, W);
+    ctx.strokeStyle = rule; ctx.beginPath(); ctx.moveTo(pad, headH - 6); ctx.lineTo(pad + W, headH - 6); ctx.stroke();
+    cvs.forEach((c, i) => { const r = R[i]; try { ctx.drawImage(c, pad + r.left - x0, headH + r.top - y0, r.width, r.height); } catch (e) {} });
+    pres.forEach((pe, i) => { const r = R[cvs.length + i], X = pad + r.left - x0, Y = headH + r.top - y0, ls = pe.textContent.replace(/\n+$/, '').split('\n'), n = Math.max(1, Math.floor((r.height - 12) / 15));
+      ctx.save(); ctx.beginPath(); ctx.rect(X, Y, r.width, r.height); ctx.clip(); ctx.fillStyle = v('textbg') || bg; ctx.fillRect(X, Y, r.width, r.height);
+      ctx.fillStyle = ink; ctx.font = '11.5px "IBM Plex Mono", Menlo, Consolas, monospace'; ctx.textBaseline = 'top';
+      const show = ls.length > n ? [...ls.slice(0, Math.min(14, n - 6)), '   …', ...ls.slice(-(n - Math.min(14, n - 6) - 1))] : ls;
+      show.forEach((l, j) => ctx.fillText(l, X + 10, Y + 8 + j * 15)); ctx.restore(); });
+    titles.forEach((el, i) => { const r = R[cvs.length + pres.length + i], c = el.cloneNode(true); c.querySelectorAll('.tabs, button').forEach(b => b.remove());
+      ctx.fillStyle = ink; ctx.font = '600 13px "IBM Plex Sans", Arial, sans-serif'; ctx.textBaseline = 'middle'; ctx.fillText(c.textContent.trim(), pad + r.left - x0 + 10, headH + r.top - y0 + r.height / 2, r.width - 20); ctx.textBaseline = 'top'; });
+    let y = headH + (y1 - y0) + 18;
+    ctx.fillStyle = ink; ctx.font = '12.5px "IBM Plex Mono", Menlo, Consolas, monospace';
+    lines.forEach(l => { ctx.fillText(l, pad, y, W); y += lh; });
+    const d = new Date(), p2 = n => String(n).padStart(2, '0');
+    ctx.fillStyle = muted; ctx.font = '11.5px "IBM Plex Sans", Arial, sans-serif';
+    ctx.fillText(`Simul2000 · Simulazioni in Statistica · ${d.toLocaleDateString('it-IT')} ${p2(d.getHours())}:${p2(d.getMinutes())}`, pad, y + 6);
+    const name = `simul2000_${(location.pathname.split('/').pop() || 'grafico').replace(/\.html?$/, '').replace(/^simul_/, '')}_${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}_${p2(d.getHours())}${p2(d.getMinutes())}.png`;
+    if (/claude/i.test(location.hostname)) { toast('Nell’anteprima su claude.ai il salvataggio non è permesso: funziona aprendo le pagine dalla cartella del programma.'); return; }
+    out.toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); toast('Immagine salvata: ' + name); }, 'image/png');
+  });
+})();
+</script>
+<script>
+(() => { const ok = document.getElementById('ok'), top = document.getElementById('oktop'); if (!ok || !top) return;
+  top.textContent = ok.textContent.trim() + ' ▶';
+  top.addEventListener('click', () => { ok.click(); const e = document.getElementById('err'); if (e && e.textContent.trim() && !document.getElementById('setup').hidden) e.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+})();
+</script>
+<script>
+// nel quadro delle scelte il tasto Invio fa partire la simulazione, come «OK, alla simulazione»
+(() => { const s = document.getElementById('setup'), ok = document.getElementById('ok'); if (!s || !ok) return;
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.isComposing || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey || s.hidden) return;
+    const t = e.target; if (t && (t.tagName === 'BUTTON' || t.tagName === 'A' || t.tagName === 'SUMMARY')) return;
+    if (t && t !== document.body && !s.contains(t)) return;
+    e.preventDefault();
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) t.dispatchEvent(new Event('change', { bubbles: true }));
+    ok.click();
+  });
+})();
+</script>
+<script>
+// durante la simulazione il tasto Invio equivale al pulsante «Avvia» (o «Pausa», se la simulazione è in corso)
+(() => { const run = document.getElementById('run'), go = document.getElementById('go'); if (!run || !go) return;
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.defaultPrevented || e.isComposing || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey || run.hidden || go.disabled) return;
+    const ov = document.getElementById('ov'); if (ov && !ov.hidden) return;
+    const t = e.target; if (t && ['BUTTON', 'A', 'SELECT', 'TEXTAREA', 'SUMMARY'].includes(t.tagName)) return;
+    e.preventDefault(); go.click();
+  });
+})();
+</script>
+
+</body>
+</html>
